@@ -8,6 +8,7 @@
 실행: python3 build.py           (같은 폴더의 geo_data.json, sample_data.json, lib/ 사용)
 """
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -56,7 +57,8 @@ def main():
 
     # 웹 버전: CDN 블록 유지, 내장 표식 제거
     web = re.sub(r"<!--LIB:[^>]+-->", "", html).replace("<!--CDN-->\n", "").replace("<!--/CDN-->\n", "")
-    web = web.replace("/*__BUILD__*/{offline:false,built:\"\"}", json.dumps({"offline": False, "built": built}))
+    # CHAT_URL: 아티팩트처럼 api/chat 이 없는 곳에서 부를 Vercel 주소 (예: https://prpt-mnge-claude.vercel.app)
+    web = web.replace("/*__BUILD__*/{offline:false,built:\"\"}", json.dumps({"offline": False, "built": built, "chatUrl": os.environ.get("CHAT_URL", "")}))
     (ROOT / "web").mkdir(exist_ok=True)
     (ROOT / "web" / "부동산통합관리시스템.html").write_text(web, encoding="utf-8")
     # Vercel·로컬 챗봇 서버용: 웹 버전 + 문서 골격 (AI 질문은 /api/chat 이 있을 때만 켜짐)

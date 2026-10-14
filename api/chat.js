@@ -4,6 +4,7 @@
 //   APP_PASSCODE        (권장) 화면 접속 암호. 비우면 누구나 호출 가능
 //   NEMOTRON_MODEL      (선택) 기본 nvidia/nemotron-3.5-lightning:free
 //   CHAT_BASE_URL       (선택) OpenAI 호환 주소. 기본 https://openrouter.ai/api/v1
+//   ALLOW_ORIGINS       (선택) 다른 사이트에서 호출 허용(쉼표 구분). 기본 * — claude.ai 아티팩트에서도 쓰도록
 const BASE = (process.env.CHAT_BASE_URL || "https://openrouter.ai/api/v1").replace(/\/$/, "");
 const MODEL = process.env.NEMOTRON_MODEL || "nvidia/nemotron-3.5-lightning:free";
 const MAX_CHARS = 80000;   // 문맥 포함 입력 글자 수 상한 (무료 사용량 보호)
@@ -31,7 +32,19 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
+function cors(req, res) {
+  const allow = (process.env.ALLOW_ORIGINS || "*").split(",").map(x => x.trim()).filter(Boolean);
+  const origin = req.headers.origin || "";
+  res.setHeader("Access-Control-Allow-Origin", allow.includes("*") ? "*" : allow.includes(origin) ? origin : allow[0]);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-app-passcode");
+  res.setHeader("Access-Control-Max-Age", "86400");
+}
+
 module.exports = async function handler(req, res) {
+  cors(req, res);
+  if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
   const key = process.env.OPENROUTER_API_KEY || process.env.CHAT_API_KEY;
   const pass = process.env.APP_PASSCODE || "";
   if (req.method === "GET") {

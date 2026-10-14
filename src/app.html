@@ -596,7 +596,7 @@ const DEFAULTS = {
   ewsWatchYoy:-3, ewsStreak:3, ewsShare:3, ewsLtv:80, ewsAlertYoy:-10,
   hpHigh:60, ltvHigh:80, dispose:10, vworldKey:"",
   idxMode:"dong", pxMinN:10, pxK:10, pxWindow:3, dongPropagate:50,
-  hpRate:4.5, hpHpi:0, hpHorizon:30, reapMonths:36, reapChg:10, anomAppr:20, anomLtv:10, anomKm:3,
+  chatUrl:"", hpRate:4.5, hpHpi:0, hpHorizon:30, reapMonths:36, reapChg:10, anomAppr:20, anomLtv:10, anomKm:3,
   presets:[
     {k:"경미", h:10, c:5,  scope:"all"},
     {k:"중간", h:20, c:10, scope:"all"},
@@ -2252,10 +2252,12 @@ function renderSettings(){
   $("#setGrid").innerHTML = SET_FIELDS.map(([k,l])=>`<label for="set-${k}">${l}<input id="set-${k}" type="number" step="0.5" value="${s[k]}"></label>`).join("") +
     s.presets.map((p,i)=>`<label for="set-p${i}h">시나리오 '${esc(p.k)}' 주택/상업 하락(%)<span style="display:flex;gap:4px"><input id="set-p${i}h" type="number" value="${p.h}" style="width:60px"><input id="set-p${i}c" type="number" value="${p.c}" style="width:60px" aria-label="${esc(p.k)} 상업용 하락률"></span></label>`).join("") +
     `<label for="set-idxMode">지수 기준<select id="set-idxMode" style="height:28px;border:1px solid var(--line);border-radius:5px;background:var(--surface)"><option value="dong" ${s.idxMode==="dong"?"selected":""}>동 프록시 우선(신뢰도 가중)</option><option value="sgg" ${s.idxMode==="sgg"?"selected":""}>시군구 KB 지수만</option></select></label>` +
+    `<label for="set-chat">AI 중계 서버 주소(Vercel)<input id="set-chat" type="text" value="${esc(s.chatUrl||"")}" placeholder="https://….vercel.app" style="width:200px;text-align:left"></label>` +
     `<label for="set-vw">브이월드 API 키(배경지도)<input id="set-vw" type="text" value="${esc(s.vworldKey)}" style="width:160px;text-align:left"></label>`;
   SET_FIELDS.forEach(([k]) => $("#set-"+k).onchange = e => { s[k] = +e.target.value; saveSettings(); });
   $("#set-idxMode").onchange = e => { s.idxMode = e.target.value; saveSettings(); };
   s.presets.forEach((p,i) => { $(`#set-p${i}h`).onchange = e => { p.h = +e.target.value; saveSettings(); }; $(`#set-p${i}c`).onchange = e => { p.c = +e.target.value; saveSettings(); }; });
+  $("#set-chat").onchange = e => { s.chatUrl = e.target.value.trim(); LS.set("reh.settings", s); toast("AI 중계 서버 주소를 저장했습니다. 연결 확인 중…"); chatProbe(); };
   $("#set-vw").onchange = e => { s.vworldKey = e.target.value.trim(); saveSettings(); if(MAP.map){ $("#mBase").innerHTML = `<option value="bound">경계지도(내장)</option><option value="osm">OpenStreetMap</option>${s.vworldKey?'<option value="vworld">브이월드</option>':""}`; $("#mBase").value = MAP.base; } };
 }
 function saveSettings(){ LS.set("reh.settings", APP.set); STR.d = null; rebuildAll(); refresh(); toast("설정을 저장하고 다시 계산했습니다."); }
@@ -2468,19 +2470,25 @@ function renderFlow(){
 /* =====================================================================
    14-2. AI 질문 (OpenRouter 네모트론 · /api/chat 중계가 있는 환경에서만)
    ===================================================================== */
-const CHAT = {ok:false, model:"", pass:false, msgs:[], busy:false, ctrl:null};
+const CHAT = {ok:false, model:"", pass:false, msgs:[], busy:false, ctrl:null, url:""};
 const SS = { get(k){ try{ return sessionStorage.getItem(k) || ""; }catch(e){ return ""; } }, set(k,v){ try{ sessionStorage.setItem(k,v); }catch(e){} } };
+/* 중계 서버 주소: 같은 사이트의 api/chat(Vercel·사내 서버) → 없으면 설정·빌드에 지정한 주소(아티팩트에서 Vercel 호출) */
+const chatEndpoints = () => [...new Set(["api/chat", ...(BUILD.offline ? [] : [APP.set.chatUrl, BUILD.chatUrl])].filter(Boolean).map(u => /^https?:/.test(u) && !/\/api\/chat\/?$/.test(u) ? u.replace(/\/$/,"") + "/api/chat" : u))];
 async function chatProbe(){
-  if(!/^https?:$/.test(location.protocol)) return;
+  for(const u of chatEndpoints()) if(await chatProbeApi(u)) return;
+}
+async function chatProbeApi(url){
+  if(!/^https?:$/.test(location.protocol) && !/^https?:/.test(url)) return false;
   try{
-    const r = await fetch("api/chat", {method:"GET", headers:{Accept:"application/json"}});
-    if(!r.ok || !/json/.test(r.headers.get("content-type")||"")) return;
-    const j = await r.json(); if(j==null || j.model==null) return;
-    Object.assign(CHAT, {ok:!!j.ok, model:j.model, pass:!!j.passcode});
+    const r = await fetch(url, {method:"GET", headers:{Accept:"application/json"}});
+    if(!r.ok || !/json/.test(r.headers.get("content-type")||"")) return false;
+    const j = await r.json(); if(j==null || j.model==null) return false;
+    Object.assign(CHAT, {ok:!!j.ok, model:j.model, pass:!!j.passcode, url});
     $("#btnChat").hidden = false;
     $("#chatModel").textContent = j.model;
     $("#chatFoot").textContent = j.ok ? "답변은 제공한 집계 데이터만 근거로 합니다. 고객번호·계좌·상세주소는 보내지 않습니다. 외부 모델이므로 실데이터는 사내 설치 모델에서만 사용하세요." : "서버에 API 키가 설정되지 않았습니다(Vercel 환경변수 OPENROUTER_API_KEY).";
-  }catch(e){}
+    return true;
+  }catch(e){ return false; }
 }
 function chatContext(scope){
   const D = APP.D; if(!D || scope==="none") return "";
@@ -2527,7 +2535,7 @@ async function chatSend(q){
   const ans = {role:"assistant", content:""}; CHAT.msgs.push(ans);
   CHAT.busy = true; CHAT.ctrl = new AbortController(); $("#chatQ").value = ""; chatRender();
   try{
-    const res = await fetch("api/chat", {method:"POST", signal:CHAT.ctrl.signal, headers:{"Content-Type":"application/json", ...(CHAT.pass?{"x-app-passcode":SS.get("reh.pass")}:{})}, body:JSON.stringify({messages})});
+    const res = await fetch(CHAT.url || "api/chat", {method:"POST", signal:CHAT.ctrl.signal, headers:{"Content-Type":"application/json", ...(CHAT.pass?{"x-app-passcode":SS.get("reh.pass")}:{})}, body:JSON.stringify({messages})});
     if(!res.ok){
       const j = await res.json().catch(()=>({}));
       if(res.status===401 && CHAT.pass){ SS.set("reh.pass",""); $("#chatPassBox").hidden = false; }
