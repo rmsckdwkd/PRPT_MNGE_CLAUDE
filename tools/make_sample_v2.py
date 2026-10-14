@@ -248,6 +248,8 @@ if OSM:
             cand = []
             for k in WANT.get(r["RE_TYPE"], ["아파트"]):
                 cand = [b for b in pool if b["kind"] == k and (b["street"], b["main"], b["subn"]) not in taken]
+                if k in ("아파트", "오피스텔") and any(b["name"] for b in cand):
+                    cand = [b for b in cand if b["name"]]        # 단지명이 있는 실제 건물 우선
                 if cand:
                     break
             b = random.choice(cand or pool)
@@ -259,12 +261,31 @@ if OSM:
             if b["kind"] == "아파트" and random.random() < 0.5:                 # 공동주택 도로명주소의 괄호 참고항목
                 ref = f' ({b["emd"]}, {b["name"]})' if b.get("name") else f' ({b["emd"]})'
             r["ROAD_ADDR"] = " ".join(x for x in (addr_sido, "" if code[:5] == "36110" else addr_sgg, b["street"], hn) if x) + ref
-            if sheet == "1_주택담보대출" and b.get("name") and b["kind"] == "아파트":
-                r["RE_NM"] = f'{b["name"]} {random.randint(101, 115)}동 {random.randint(2, 25)}0{random.randint(1, 4)}호'
+            label = b["name"] or f'{b["street"]} {hn}'        # 부동산명: 실제 단지·건물명, 없으면 도로명주소
+            unit = f'{random.randint(101, 115)}동 {random.randint(2, 25)}0{random.randint(1, 4)}호'
+            if sheet == "2_투자부동산":
+                r["RE_NM"] = r["ASSET_NM"] = f'{b["street"]} {hn} {r["RE_TYPE"]}'
+            elif r["RE_TYPE"] == "아파트":
+                r["RE_NM"] = f"{label} {unit}"
+            elif r["RE_TYPE"] in ("연립·다세대", "오피스텔"):
+                r["RE_NM"] = f'{label} {random.randint(1, 5)}0{random.randint(1, 4)}호'
+            else:
+                r["RE_NM"] = label
             if r["EXPO_ID"] in NO_NUM:
                 b["skip"] = True
             r["BJD_CD"], r["EMD"] = code, b["emd"]
             USED[code] = (reg, b["emd"])
+    # 주소정제 시연 행도 실제 단지로: 약칭+동호수(사전에서 뺌 → 괄호 참고항목으로), 동 이름만, 시군구 누락(미매칭)
+    sp = {r["EXPO_ID"]: r for sh in DATA_SHEETS for r in data[sh]}
+    named = lambda sgg: [b for b in pools[sgg] if b["kind"] == "아파트" and b["name"]] or pools[sgg]
+    b = random.choice(named("11710")); b["skip"] = True; USED[b["code"]] = (REGIONS[2], b["emd"])
+    hn = f'{b["main"]}-{b["subn"]}' if b["subn"] else str(b["main"])
+    sp["LN-0030"].update(ROAD_ADDR=f'서울시 송파구 {b["street"]} {hn} ({b["emd"]}) 101동 1203호', RE_NM=f'{b["name"] or b["street"]} 101동 1203호')
+    b = random.choice(named("41135")); USED[b["code"]] = (REGIONS[10], b["emd"])
+    sp["LN-0031"].update(ROAD_ADDR=f'경기 성남시 분당구 {b["emd"]} {b["name"]} 201동 502호', RE_NM=f'{b["name"]} 201동 502호')
+    b = random.choice(named("26350")); USED[b["code"]] = (REGIONS[19], b["emd"])
+    sp["LN-0032"].update(ROAD_ADDR=f'부산 해운대구 {b["emd"]} {b["name"]}', RE_NM=b["name"] or "")
+    sp["HP-0080"].update(ROAD_ADDR="서울 강남 테헤란로 152", RE_NM="테헤란로 152", REMARK="[시연] 시군구를 빠뜨린 주소 → 미매칭 → 담당자 확정")
     for reg in REGIONS:                                        # 사전 = 받은 실제 건물 전체 (담보 없는 건물 포함)
         for b in pools[reg["sgg"]]:
             if b.get("skip"):
@@ -314,7 +335,7 @@ b9["LN-0007"]["REMARK"] = "[시연 오류] 법정동코드 9자리"
 b9["LN-0015"].pop("APPR_AMT")
 b9["LN-0015"]["REMARK"] = "[시연 오류] 평가금액 누락"
 extra = copy.deepcopy(b9["LN-0021"])
-extra.update(RE_SEQ=2, ALLOC_RATIO=0.3, RE_NM="가상 공동담보 2번 물건", REMARK="[시연 오류] 배분비율 합 130%")
+extra.update(RE_SEQ=2, ALLOC_RATIO=0.3, RE_NM="공동담보 2번 물건", REMARK="[시연 오류] 배분비율 합 130%")
 m9.insert(m9.index(b9["LN-0021"]) + 1, extra)
 
 # ---------------------------------------------------------------- 202608 (전월) 스냅샷
