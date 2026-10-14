@@ -14,7 +14,7 @@
 출력: ../샘플데이터/샘플_가상_202608.xlsx, 샘플_가상_202609.xlsx, 동가격프록시_가상_202301-202609.xlsx,
       KB_매매가격지수_가상_시계열.xlsx, sample_data.json(화면 내장용)
 """
-import copy, json, math, random, sys
+import copy, json, math, random, re, sys
 from datetime import date, datetime
 from pathlib import Path
 from openpyxl import load_workbook
@@ -40,6 +40,93 @@ def real_code(sgg, emd):
             if n == emd:
                 return c + t, emd
     raise KeyError((sgg, emd))
+
+
+# ---------------------------------------------------------------- 실제 주소 (OpenStreetMap, ODbL)
+# data/osm_buildings.json : 샘플 시군구의 주소 있는 실제 건물(도로명·건물번호·좌표). 법정동은
+#   서울 = 법정동 경계(data/서울_법정동경계_2015.json) 안에 드는지, 그 밖 = OSM 법정동 태그 → 가까운 행정동 이름 순으로 정한다.
+OSM_PATH, SEOUL_PATH = HERE / "data" / "osm_buildings.json", HERE / "data" / "서울_법정동경계_2015.json"
+GEO_EMD = json.loads((HERE / "geo_data.json").read_text(encoding="utf-8"))["emd"]
+
+
+def _in_ring(x, y, ring):
+    inside = False
+    for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+            inside = not inside
+    return inside
+
+
+SEOUL = []
+if SEOUL_PATH.exists():
+    for f in json.loads(SEOUL_PATH.read_text(encoding="utf-8"))["features"]:
+        g = f["geometry"]
+        polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+        xs = [p[0] for poly in polys for p in poly[0]]; ys = [p[1] for poly in polys for p in poly[0]]
+        SEOUL.append((f["properties"]["EMD_CD"] + "00", polys, (min(xs), min(ys), max(xs), max(ys))))
+
+
+ALL_EMD = [(sgg, e[0], e[1], e[2]) for sgg, lst in GEO_EMD.items() for e in lst]   # 2023 행정동 대표점 전체
+
+
+def seoul_poly(b):
+    for code, polys, (x0, y0, x1, y1) in SEOUL:
+        if x0 <= b["lng"] <= x1 and y0 <= b["lat"] <= y1 and any(_in_ring(b["lng"], b["lat"], poly[0]) for poly in polys):
+            return code
+    return None
+
+
+def nearest_emd(b):
+    return min(ALL_EMD, key=lambda e: (e[2] - b["lat"]) ** 2 + (e[3] - b["lng"]) ** 2)
+
+
+def legal_dong(reg, b):
+    """실제 건물 → (법정동코드 10자리, 법정동명) 또는 None.  ① OSM 법정동 태그 ② 서울 법정동 경계 ③ 가장 가까운 행정동 이름"""
+    cands = [reg["sgg"]] if reg["sgg"] in BJ["s"] else list(BJ["al"].get(reg["sgg"], []))
+    cands += [k for k in BJ["s"] if k[:4] == cands[0][:4] and k not in cands]
+    name_of = {c + t: n for c, t2 in ((c, BJE.get(c, [])) for c in cands) for t, n in t2}
+    if b.get("sub"):
+        hit = [c for c, n in name_of.items() if n == b["sub"]]
+        if hit:
+            return hit[0], b["sub"]
+    if reg["sgg"].startswith("11") and SEOUL:
+        code = seoul_poly(b)
+        return (code, name_of[code]) if code in name_of else None
+    sgg, near = nearest_emd(b)[:2]
+    if sgg != reg["sgg"]:
+        return None
+    base = re.sub(r"[0-9.·]+(?=동$)", "", near)
+    hit = [c for c, n in name_of.items() if n == base or n == near]
+    return (hit[0], name_of[hit[0]]) if hit else None
+
+
+def osm_pool(reg):
+    toks = reg["sigungu"].split()
+    out = []
+    for b in OSM.get(reg["sgg"], []):
+        city, dist = b.get("city") or "", b.get("district") or ""
+        if city or dist:      # 태그가 있으면 이름으로 소속 확인, 없으면 위치(법정동 판정)로 확인
+            ok = (city.startswith("세종") if reg["sgg"] == "36110" else
+                  (city == toks[0] and (not dist or dist == toks[1])) if len(toks) == 2 else (dist == toks[0] or (not dist and city == toks[0])))
+            if not ok:
+                continue
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", (b.get("hn") or "").strip())
+        if not m or not b.get("street"):
+            continue
+        ld = legal_dong(reg, b)
+        if not ld:
+            continue
+        nm = b.get("name") or ""
+        if not re.search(r"[가-힣]{2,}", nm) or re.fullmatch(r"[0-9A-Za-z가-힣\s-]*\d+\s*동", nm):
+            nm = ""                                    # '102', '107동' 같은 동 번호는 단지명으로 쓰지 않음
+        b = dict(b, name=nm)
+        kind = ("오피스텔" if "오피스텔" in nm else "연립" if b["b"] in ("residential", "terrace") or re.search(r"빌라|맨션|빌$|다세대|연립|하우스", nm)
+                else "아파트" if b["b"] == "apartments" else "단독" if b["b"] in ("house", "detached") else "상업")
+        out.append(dict(b, main=int(m.group(1)), subn=int(m.group(2) or 0), code=ld[0], emd=ld[1], kind=kind))
+    return out
+
+
+OSM = json.loads(OSM_PATH.read_text(encoding="utf-8")) if OSM_PATH.exists() else {}
 
 random.seed(26)
 SRC = WORK / "샘플_로우데이터_가상.xlsx"
@@ -140,41 +227,84 @@ for k in GEO:
     hp_unmatched.pop(k, None)
 hp_unmatched["ROAD_ADDR"], hp_unmatched["REMARK"] = "가상도 가상군 미확인리 12", "[시연] 주소 미매칭"
 
-# 도로명주소만 입력하는 운영 방식 재현: 실제 법정동코드로 맞추고, 가상 도로명을 동마다 따로 부여한 뒤 지역 칸은 비운다
-ADDR_DICT = []          # 가상 도로명주소 사전 (행안부 주소DB 형식 흉내: 좌표는 UTM-K)
-NO_NUM = {"LN-0050", "LN-0051", "HP-0010"}   # 사전에 건물번호가 없는 건 → 도로 단위로 동 확정
+# 도로명주소만 입력하는 운영 방식 재현: 지역 칸(법정동코드·시도·시군구·읍면동·좌표)은 비우고 도로명주소만 남긴다
+ADDR_DICT = []          # 도로명주소 사전 (행안부 주소DB 형식 흉내: 좌표는 UTM-K)
+USED = {}               # 담보가 있는 법정동 → (지역, 법정동명) — 동 가격 프록시 생성 대상
+NO_NUM = {"LN-0050", "LN-0051", "HP-0010"}   # 사전에 그 건물이 없는 건 → 도로·참고항목으로 처리되는지 시연
 LEGACY = {"29140"}                           # 옛 시도명(광주광역시)으로 쓴 주소 → 현행 코드 변환 시연
-roads_seen = {}
-for sheet in DATA_SHEETS:
-    for r in data[sheet]:
-        if not r.get("BJD_CD") or r.get("LAT") is None:
-            continue
-        old_sgg = str(r["BJD_CD"])[:5]
-        code, emdn = real_code(old_sgg, r["EMD"])
-        sido, sggn = BJ["s"][code[:5]][:2]
-        reg = next(x for x in REGIONS if x["sgg"] == old_sgg)
-        ei = [e[0] for e in reg["emd"]].index(r["EMD"])
-        road = f"가상로{ei * 30 + random.randint(1, 30)}길"
-        num = random.randint(1, 300)
-        addr_sido, addr_sgg = (reg["sido"], reg["sigungu"]) if old_sgg in LEGACY and random.random() < 0.5 else (sido, sggn)
-        r["ROAD_ADDR"] = " ".join(x for x in (addr_sido, "" if code[:5] == "36110" else addr_sgg, road, str(num)) if x)
-        if r["EXPO_ID"] not in NO_NUM:
-            x, y = to_utmk(r["LAT"], r["LNG"])
-            ADDR_DICT.append([code[:5], code, sido, sggn, emdn, road, 0, num, 0, round(x, 2), round(y, 2)])
-        roads_seen.setdefault((code, road), set()).add(num)
-        r["BJD_CD"], r["EMD"] = code, emdn
-for (code, road), nums in roads_seen.items():       # 같은 도로의 다른 건물들 (사전에는 있고 담보는 없는 건물)
-    for _ in range(3):
-        n = random.randint(301, 400)
-        x, y = to_utmk(*next((reg["lat"], reg["lng"]) for reg in REGIONS if reg["sgg"][:4] == code[:4] or reg["sgg"] in BJ["old"].get(code[:5], [])))
-        ADDR_DICT.append([code[:5], code, *BJ["s"][code[:5]][:2], next(n2 for t, n2 in BJE[code[:5]] if code[:5] + t == code), road, 0, n, 0, round(x + random.uniform(-300, 300), 2), round(y + random.uniform(-300, 300), 2)])
+SKIP = {"LN-0030", "LN-0031", "LN-0032"}     # 주소정제 시연 행(약칭·지번·괄호)은 그대로
+WANT = {"아파트": ["아파트", "연립"], "연립·다세대": ["연립", "아파트"], "단독·다가구": ["단독", "연립"], "오피스텔": ["오피스텔", "상업", "아파트"],
+        "오피스": ["상업", "오피스텔"], "상가": ["상업"], "물류": ["상업", "단독"], "호텔": ["상업"]}
+if OSM:
+    pools = {reg["sgg"]: osm_pool(reg) for reg in REGIONS}
+    print("실제 주소 건물(법정동 확정)", {k: len(v) for k, v in pools.items()})
+    taken = set()
+    for sheet in DATA_SHEETS:
+        for r in data[sheet]:
+            if not r.get("BJD_CD") or r["EXPO_ID"] in SKIP:
+                continue
+            reg = next(x for x in REGIONS if x["sgg"] == str(r["BJD_CD"])[:5])
+            pool = pools[reg["sgg"]]
+            cand = []
+            for k in WANT.get(r["RE_TYPE"], ["아파트"]):
+                cand = [b for b in pool if b["kind"] == k and (b["street"], b["main"], b["subn"]) not in taken]
+                if cand:
+                    break
+            b = random.choice(cand or pool)
+            taken.add((b["street"], b["main"], b["subn"]))
+            code = b["code"]; sido, sggn = BJ["s"][code[:5]][:2]
+            hn = f'{b["main"]}-{b["subn"]}' if b["subn"] else str(b["main"])
+            addr_sido, addr_sgg = (reg["sido"], reg["sigungu"]) if reg["sgg"] in LEGACY and random.random() < 0.5 else (sido, sggn)
+            ref = ""
+            if b["kind"] == "아파트" and random.random() < 0.5:                 # 공동주택 도로명주소의 괄호 참고항목
+                ref = f' ({b["emd"]}, {b["name"]})' if b.get("name") else f' ({b["emd"]})'
+            r["ROAD_ADDR"] = " ".join(x for x in (addr_sido, "" if code[:5] == "36110" else addr_sgg, b["street"], hn) if x) + ref
+            if sheet == "1_주택담보대출" and b.get("name") and b["kind"] == "아파트":
+                r["RE_NM"] = f'{b["name"]} {random.randint(101, 115)}동 {random.randint(2, 25)}0{random.randint(1, 4)}호'
+            if r["EXPO_ID"] in NO_NUM:
+                b["skip"] = True
+            r["BJD_CD"], r["EMD"] = code, b["emd"]
+            USED[code] = (reg, b["emd"])
+    for reg in REGIONS:                                        # 사전 = 받은 실제 건물 전체 (담보 없는 건물 포함)
+        for b in pools[reg["sgg"]]:
+            if b.get("skip"):
+                continue
+            x, y = to_utmk(b["lat"], b["lng"])
+            ADDR_DICT.append([b["code"][:5], b["code"], *BJ["s"][b["code"][:5]][:2], b["emd"], b["street"], 0, b["main"], b["subn"], round(x, 2), round(y, 2)])
+else:
+    NO_NUM = {"LN-0050", "LN-0051", "HP-0010"}   # 사전에 건물번호가 없는 건 → 도로 단위로 동 확정
+    LEGACY = {"29140"}                           # 옛 시도명(광주광역시)으로 쓴 주소 → 현행 코드 변환 시연
+    roads_seen = {}
+    for sheet in DATA_SHEETS:
+        for r in data[sheet]:
+            if not r.get("BJD_CD") or r.get("LAT") is None:
+                continue
+            old_sgg = str(r["BJD_CD"])[:5]
+            code, emdn = real_code(old_sgg, r["EMD"])
+            sido, sggn = BJ["s"][code[:5]][:2]
+            reg = next(x for x in REGIONS if x["sgg"] == old_sgg)
+            ei = [e[0] for e in reg["emd"]].index(r["EMD"])
+            road = f"가상로{ei * 30 + random.randint(1, 30)}길"
+            num = random.randint(1, 300)
+            addr_sido, addr_sgg = (reg["sido"], reg["sigungu"]) if old_sgg in LEGACY and random.random() < 0.5 else (sido, sggn)
+            r["ROAD_ADDR"] = " ".join(x for x in (addr_sido, "" if code[:5] == "36110" else addr_sgg, road, str(num)) if x)
+            if r["EXPO_ID"] not in NO_NUM:
+                x, y = to_utmk(r["LAT"], r["LNG"])
+                ADDR_DICT.append([code[:5], code, sido, sggn, emdn, road, 0, num, 0, round(x, 2), round(y, 2)])
+            roads_seen.setdefault((code, road), set()).add(num)
+            r["BJD_CD"], r["EMD"] = code, emdn
+    for (code, road), nums in roads_seen.items():       # 같은 도로의 다른 건물들 (사전에는 있고 담보는 없는 건물)
+        for _ in range(3):
+            n = random.randint(301, 400)
+            x, y = to_utmk(*next((reg["lat"], reg["lng"]) for reg in REGIONS if reg["sgg"][:4] == code[:4] or reg["sgg"] in BJ["old"].get(code[:5], [])))
+            ADDR_DICT.append([code[:5], code, *BJ["s"][code[:5]][:2], next(n2 for t, n2 in BJE[code[:5]] if code[:5] + t == code), road, 0, n, 0, round(x + random.uniform(-300, 300), 2), round(y + random.uniform(-300, 300), 2)])
 for sheet in DATA_SHEETS:
     for r in data[sheet]:
         if r["EXPO_ID"] in ("LN-0030", "LN-0031", "LN-0032"):
             continue
         for k in ("BJD_CD", "SIDO", "SIGUNGU", "EMD", "LAT", "LNG"):
             r.pop(k, None)
-print("도로명주소 사전(가상)", len(ADDR_DICT), "건")
+print("도로명주소 사전", "(OSM 실제 주소)" if OSM else "(가상)", len(ADDR_DICT), "건")
 
 sep = copy.deepcopy(data)
 m9 = sep["1_주택담보대출"]
@@ -245,9 +375,16 @@ for ym, d in (("202608", aug), ("202609", sep)):
 PX_TYPES = [("아파트", 1.0, 8, 40), ("연립·다세대", 0.55, 2, 12), ("오피스텔", 0.6, 1, 8), ("단독·다가구", 0.5, 0, 4)]
 SPECIAL = {("11710", "문정동", "아파트"): -0.0075, ("41135", "정자동", "아파트"): -0.006, ("11500", "화곡동", "연립·다세대"): -0.012}
 dong = []
+TARGETS = {}
 for reg in REGIONS:
-    s = series.get(reg["sgg"]) or sido_series[f'{reg["sgg"][:2]}000'][1]
     for emd, _, _, tail in reg["emd"]:
+        rc, rn = real_code(reg["sgg"], emd)
+        TARGETS[rc] = (reg, rn)
+for code, (reg, rn) in USED.items():
+    TARGETS.setdefault(code, (reg, rn))
+for code, (reg, emd) in sorted(TARGETS.items()):
+    s = series.get(reg["sgg"]) or sido_series[f'{reg["sgg"][:2]}000'][1]
+    if True:
         for typ, fac, nlo, nhi in PX_TYPES:
             if typ == "단독·다가구" and random.random() < 0.5 or typ == "오피스텔" and random.random() < 0.4:
                 continue
@@ -260,7 +397,7 @@ for reg in REGIONS:
                     continue
                 idx = (s[ym] / s["202609"]) ** (0.7 if typ != "아파트" else 1)
                 avg = base_ppm * idx * math.exp(drift * (i - len(ALL_M) + 1)) * (1 + random.gauss(0, 0.035 / math.sqrt(n)))
-                rc, rn = real_code(reg["sgg"], emd)
+                rc, rn = code, emd
                 dong.append(dict(BASE_YM=ym, BJD_CD=rc, SIDO=BJ["s"][rc[:5]][0], SIGUNGU=BJ["s"][rc[:5]][1], EMD=rn,
                                  PX_TYPE=typ, PX_AVG=int(round(avg, -3)), PX_UNIT="원/㎡", PX_CNT=n, PX_SRC="KB시세 단지평균(가상)"))
 print("동 프록시", len(dong), "행")
@@ -322,7 +459,10 @@ def enc(o):
 
 bundle["_px"] = {"dong": dong}
 bundle["_addr"] = {"rows": [dict(zip(["시군구코드", "법정동코드", "시도명", "시군구명", "법정읍면동명", "도로명", "지하여부", "건물본번", "건물부번", "X좌표", "Y좌표"], r)) for r in ADDR_DICT]}
-with open(OUT / "도로명주소사전_가상_주소DB형식.txt", "w", encoding="cp949") as f:   # 실제 주소DB처럼 머리글 없는 | 구분 · CP949
+DICT_NAME = "도로명주소사전_OSM시험용_주소DB형식.txt" if OSM else "도로명주소사전_가상_주소DB형식.txt"
+for old in OUT.glob("도로명주소사전_*_주소DB형식.txt"):
+    old.unlink()
+with open(OUT / DICT_NAME, "w", encoding="cp949", errors="replace") as f:   # 실제 주소DB처럼 머리글 없는 | 구분 · CP949
     for r in ADDR_DICT:
         f.write("|".join(str(v) for v in [r[0], r[1], r[2], r[3], r[4], "", r[5], r[6], r[7], r[8], "", r[9], r[10]]) + "\n")
 json.dump(bundle, open(HERE / "sample_data.json", "w", encoding="utf-8"), ensure_ascii=False,

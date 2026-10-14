@@ -16,6 +16,7 @@
 import argparse
 import json
 import os
+import subprocess
 import urllib.error
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -73,6 +74,14 @@ class Handler(SimpleHTTPRequestHandler):
             headers={"Authorization": f"Bearer {KEY}", "Content-Type": "application/json", "X-Title": "RE Exposure Hub"})
         try:
             up = urllib.request.urlopen(req, timeout=120)
+        except urllib.error.URLError as e:
+            if "CERTIFICATE_VERIFY_FAILED" in str(e):     # macOS python.org 설치본: 시스템 curl 로 대신 호출
+                return self._via_curl(req)
+            if not isinstance(e, urllib.error.HTTPError):
+                return self._json(502, {"error": f"모델 서버에 연결하지 못했습니다: {e}"})
+            msg = {401: "API 키가 올바르지 않습니다.", 429: "무료 사용 한도에 걸렸습니다. 잠시 뒤 다시 시도하세요.",
+                   404: f"모델을 찾지 못했습니다({MODEL})."}.get(e.code, f"모델 호출 실패({e.code}): {e.read()[:300].decode('utf-8', 'ignore')}")
+            return self._json(e.code, {"error": msg})
         except urllib.error.HTTPError as e:
             msg = {401: "API 키가 올바르지 않습니다.", 429: "무료 사용 한도에 걸렸습니다. 잠시 뒤 다시 시도하세요.",
                    404: f"모델을 찾지 못했습니다({MODEL})."}.get(e.code, f"모델 호출 실패({e.code}): {e.read()[:300].decode('utf-8', 'ignore')}")
@@ -87,6 +96,36 @@ class Handler(SimpleHTTPRequestHandler):
             for chunk in iter(lambda: up.read1(4096) if hasattr(up, "read1") else up.read(4096), b""):
                 self.wfile.write(chunk)
                 self.wfile.flush()
+
+
+def _via_curl(self, req):
+    cmd = ["curl", "-sS", "-N", "-i", "-X", "POST", req.full_url, "--data-binary", "@-"]
+    for k, v in req.header_items():
+        cmd += ["-H", f"{k}: {v}"]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p.stdin.write(req.data); p.stdin.close()
+    status = 0
+    while True:                                  # 응답 머리글 (100 Continue 건너뜀)
+        line = p.stdout.readline()
+        if not line:
+            break
+        if line.startswith(b"HTTP/"):
+            status = int(line.split()[1])
+        if line in (b"\r\n", b"\n") and status != 100:
+            break
+    if status != 200:
+        body = p.stdout.read()[:300].decode("utf-8", "ignore")
+        return self._json(status or 502, {"error": {401: "API 키가 올바르지 않습니다.", 429: "무료 사용 한도에 걸렸습니다."}.get(status, f"모델 호출 실패({status}): {body}")})
+    self.send_response(200)
+    self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+    self.send_header("Cache-Control", "no-cache")
+    self.end_headers()
+    for chunk in iter(lambda: p.stdout.read1(4096), b""):
+        self.wfile.write(chunk)
+        self.wfile.flush()
+
+
+Handler._via_curl = _via_curl
 
 
 if __name__ == "__main__":

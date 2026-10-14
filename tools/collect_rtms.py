@@ -22,8 +22,10 @@ import argparse
 import csv
 import os
 import statistics
+import subprocess
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -91,15 +93,28 @@ def load_bjd(path):
     return out
 
 
+def http_get(url, timeout=30):
+    """urllib 로 받고, 인증서 검증 실패(macOS python.org 설치본에서 흔함)면 시스템 curl 로 받는다."""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return r.read().decode("utf-8")
+    except urllib.error.URLError as e:
+        if "CERTIFICATE_VERIFY_FAILED" not in str(e):
+            raise
+    r = subprocess.run(["curl", "-sS", "-m", str(timeout), url], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError("curl 실패: " + r.stderr.strip())
+    return r.stdout
+
+
 def fetch(key, path, lawd, ym, page, timeout=30):
     k = key if "%" in key else urllib.parse.quote(key, safe="")   # 인코딩된 키는 그대로, 디코딩 키는 인코딩
     q = urllib.parse.urlencode({"LAWD_CD": lawd, "DEAL_YMD": ym, "pageNo": page, "numOfRows": 1000})
     url = f"{BASE}{path}?serviceKey={k}&{q}"
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(url, timeout=timeout) as r:
-                return r.read().decode("utf-8")
-        except Exception as e:  # noqa: BLE001
+            return http_get(url, timeout)
+        except Exception:  # noqa: BLE001
             if attempt == 2:
                 raise
             time.sleep(1.5 * (attempt + 1))
@@ -107,6 +122,9 @@ def fetch(key, path, lawd, ym, page, timeout=30):
 
 def parse(xml_text):
     root = ET.fromstring(xml_text)
+    if root.find(".//cmmMsgHeader") is not None:          # 게이트웨이 오류 형식 (키 미등록·트래픽 초과 등)
+        raise RuntimeError(f"API 오류 {root.findtext('.//returnReasonCode')}: {root.findtext('.//returnAuthMsg') or root.findtext('.//errMsg')}"
+                           " — 키가 아직 승인 전이면 활용신청 후 1~2시간 뒤 다시 시도하세요.")
     code = (root.findtext(".//resultCode") or "").strip()
     if code not in ("", "00", "000"):
         raise RuntimeError(f"API 오류 {code}: {root.findtext('.//resultMsg')}")
@@ -227,6 +245,11 @@ def selftest():
     try:
         parse("<response><header><resultCode>30</resultCode><resultMsg>SERVICE KEY IS NOT REGISTERED ERROR.</resultMsg></header></response>")
         raise AssertionError("오류 응답을 놓침")
+    except RuntimeError:
+        pass
+    try:
+        parse("<OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</errMsg><returnAuthMsg>등록되지 않은 서비스키</returnAuthMsg><returnReasonCode>30</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>")
+        raise AssertionError("게이트웨이 오류를 놓침")
     except RuntimeError:
         pass
     print("selftest OK — 영문·한글 태그 해석, 해제·직거래 제외, ㎡당 중위가, 법정동코드(읍면 리 포함) 연결, 오류 응답 처리")
