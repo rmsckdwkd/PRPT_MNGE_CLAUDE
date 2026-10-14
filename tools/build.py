@@ -3,6 +3,7 @@
 
   ../부동산통합관리시스템_내부망.html : Leaflet·SheetJS·topojson·경계·샘플을 모두 내장한 단일 파일 (외부 요청 0건)
   ../web/부동산통합관리시스템.html    : 라이브러리는 CDN에서 불러오는 웹 버전 (Claude 아티팩트 게시용, 문서 골격 없음)
+  ../public/index.html                : 웹 버전 + 문서 골격 (Vercel 배포 · tools/chat_server.py 용, AI 질문 사용 가능)
 
 실행: python3 build.py           (같은 폴더의 geo_data.json, sample_data.json, lib/ 사용)
 """
@@ -21,6 +22,12 @@ CSS_LIBS = ["leaflet.min.css", "MarkerCluster.css", "MarkerCluster.Default.css"]
 
 def script_safe(text):
     return text.replace("</script", "<\\/script").replace("<!--", "<\\!--")
+
+
+def skeleton(body):
+    return ('<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
+            '</head>\n<body>\n' + body + '\n</body>\n</html>\n')
 
 
 def compact_sample(raw):
@@ -49,6 +56,9 @@ def main():
     web = web.replace("/*__BUILD__*/{offline:false,built:\"\"}", json.dumps({"offline": False, "built": built}))
     (ROOT / "web").mkdir(exist_ok=True)
     (ROOT / "web" / "부동산통합관리시스템.html").write_text(web, encoding="utf-8")
+    # Vercel·로컬 챗봇 서버용: 웹 버전 + 문서 골격 (AI 질문은 /api/chat 이 있을 때만 켜짐)
+    (ROOT / "public").mkdir(exist_ok=True)
+    (ROOT / "public" / "index.html").write_text(skeleton(web), encoding="utf-8")
 
     # 내부망 버전: CDN 블록 삭제, 라이브러리 내장, 문서 골격 추가
     off = re.sub(r"<!--CDN-->.*?<!--/CDN-->\n", "", html, flags=re.S)
@@ -58,12 +68,10 @@ def main():
     # 외부 자원 자동 로드 여부 점검: src/href 로 외부 주소를 부르는 태그가 없어야 함 (배경지도 타일은 사용자가 고를 때만 요청)
     ext = re.findall(r"<(?:script|link|img)[^>]+(?:src|href)=[\"']https?://[^\"']+", off)
     print("내부망 버전 외부 자동 로드:", len(ext), "건", ext[:3])
-    off = ('<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
-           '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
-           '</head>\n<body>\n' + off + '\n</body>\n</html>\n')
+    off = skeleton(off)
     out = ROOT / "부동산통합관리시스템_내부망.html"
     out.write_text(off, encoding="utf-8")
-    for p in (out, ROOT / "web" / "부동산통합관리시스템.html"):
+    for p in (out, ROOT / "web" / "부동산통합관리시스템.html", ROOT / "public" / "index.html"):
         print(f"{p.relative_to(ROOT)}  {p.stat().st_size / 1e6:.2f} MB")
 
 

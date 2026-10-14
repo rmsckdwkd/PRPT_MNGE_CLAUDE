@@ -239,10 +239,29 @@ textarea.report{width:100%;min-height:330px;border:1px solid var(--line);border-
 code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4px}
 .spark{display:block;width:100%;height:120px}
 
+/* AI 질문 패널 */
+.chat{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:1600;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+.chat-h{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.chat-h b{white-space:nowrap}
+.chat-h .muted{font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.chat-opt{display:flex;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px}
+.chat-opt select{height:28px;border:1px solid var(--line);border-radius:5px;background:var(--surface)}
+.chat-peek{margin:0;max-height:200px;overflow:auto;padding:8px 14px;font-size:11px;background:var(--surface-2);white-space:pre-wrap;border-bottom:1px solid var(--line)}
+.chat-log{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{max-width:92%;padding:8px 11px;border-radius:10px;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.6}
+.msg.u{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}
+.msg.a{align-self:flex-start;background:var(--surface-2)}
+.msg.e{align-self:stretch;background:none;border:1px solid var(--crit);color:var(--crit)}
+.chat-sug{padding:0 14px 8px}
+.chat-in{display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--line)}
+.chat-in textarea{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;resize:none;font:inherit}
+.chat-pass{display:flex;gap:6px;padding:8px 14px;border-top:1px solid var(--line)}
+.chat-pass input{flex:1;height:30px;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:0 8px}
+.chat-foot{padding:0 14px 10px;font-size:11px;color:var(--text-3)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:9px 16px;border-radius:8px;box-shadow:var(--shadow);z-index:2000;font-size:12.5px;max-width:calc(100% - 32px)}
 .busy{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 70%,transparent);display:grid;place-items:center;z-index:1500;font-weight:700}
 
-@media (max-width:1240px){nav.tabs{order:3;flex-basis:100%}.ctl{margin-left:auto}}
+@media (max-width:1440px){nav.tabs{order:3;flex-basis:100%}.ctl{margin-left:auto}}
 @media (max-width:1000px){.g-side,.g3{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:767px){
   .top{gap:8px;padding:8px 12px}
@@ -268,6 +287,7 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
       <button role="tab" data-v="conc" aria-selected="false">집중도·비교</button>
       <button role="tab" data-v="stress" aria-selected="false">스트레스</button>
       <button role="tab" data-v="ews" aria-selected="false">조기경보</button>
+      <button role="tab" data-v="dong" aria-selected="false">동 가격</button>
       <button role="tab" data-v="qa" aria-selected="false">점검·주소정제</button>
       <button role="tab" data-v="data" aria-selected="false">데이터·내보내기</button>
       <button role="tab" data-v="guide" aria-selected="false">안내</button>
@@ -277,6 +297,7 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
       <label for="selYm">기준월 <select id="selYm"></select></label>
       <label for="selCmp">비교 <select id="selCmp"></select></label>
       <button class="pill warn" id="qaBadge" hidden></button>
+      <button class="btn" id="btnChat" hidden>AI 질문</button>
       <button class="btn pri" id="btnLoad">엑셀 불러오기</button>
       <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls" multiple hidden>
     </div>
@@ -382,6 +403,19 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
       </div>
     </div></section>
 
+    <!-- ===================== 동 가격 ===================== -->
+    <section class="view" id="v-dong" role="tabpanel" hidden><div class="page">
+      <div class="page-h"><div><h2>동 단위 가격 프록시</h2><p>법정동 × 건물유형별 평균가격(확정 시세 아님)으로 만든 동 지수입니다. 표본이 충분한 동은 시군구 KB 지수와 신뢰도 가중으로 섞어 지수조정 LTV·스트레스·하락지역 판단에 반영하고, 부족한 동은 시군구 지수를 그대로 씁니다.</p></div>
+        <div class="filters"><select id="dgFilter" aria-label="동 필터"><option value="">전체 동</option><option value="hidden">숨은 하락 (시군구 양호 · 동 하락)</option><option value="down">동 경보 (관찰 · 경계)</option><option value="weak">표본 부족</option></select><select id="dgType" aria-label="건물유형"><option value="">전체 유형</option></select></div></div>
+      <div class="tiles" id="dgTiles"></div>
+      <div class="note" id="dgNote"></div>
+      <div class="card" id="dgDetail" hidden></div>
+      <div class="card"><h3>동별 가격지표 한눈에 <small>담보가 있는 모든 동 · 유형별 최근 평균가 · 전년대비 · 표본수 (— = 자료 없음)</small></h3>
+        <div class="filters" style="margin-bottom:8px"><label class="tg" style="margin:0"><input type="checkbox" id="dgGapOnly"> 가격자료가 없는 유형이 있는 동만</label><span class="muted" id="dgMxNote"></span></div>
+        <div class="tw" style="max-height:520px;overflow:auto"><table class="t" id="dgMx"></table></div></div>
+      <div class="card"><h3>동 × 건물유형 <small>담보가 있는 동만 · 행을 누르면 동 지수와 시군구 지수 비교</small></h3><div class="tw" style="max-height:620px;overflow:auto"><table class="t"><thead id="dgTH"></thead><tbody id="dgTB"></tbody></table></div></div>
+    </div></section>
+
     <!-- ===================== 점검·주소정제 ===================== -->
     <section class="view" id="v-qa" role="tabpanel" hidden><div class="page">
       <div class="page-h"><div><h2>점검사항과 주소정제</h2><p>산출 전에 누락·자릿수·배분비율·좌표 이상을 자동으로 점검하고, 완료 기준(G1~G4)을 수치로 확인합니다. 지역을 찾지 못한 주소는 후보를 골라 매핑 사전에 등록하면 다음 달부터 자동 적용됩니다.</p></div></div>
@@ -401,6 +435,17 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
       <div class="page-h"><div><h2>데이터 관리와 내보내기</h2><p>표준 로우데이터 양식(xlsx)을 기준월별로 불러와 스냅샷으로 쌓습니다. 파일은 이 브라우저 안에서만 처리되며 어디로도 전송되지 않습니다.</p></div></div>
       <div class="drop" id="drop"><b>로우데이터 양식(xlsx)을 여기에 끌어 놓으세요</b><span class="muted">시트 1_주택담보대출 · 2_투자부동산 · 3_주택연금 · 4_가격지표 · 여러 기준월 파일을 한 번에 넣어도 됩니다</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn pri" id="btnLoad2">파일 선택</button><button class="btn" id="btnSample">가상 샘플 다시 불러오기</button></div></div>
+      <div class="card"><h3>도로명주소 사전 (주소DB) <small id="adNote"></small></h3>
+        <p class="muted" style="margin:0 0 8px">로우데이터에 도로명주소만 있어도 법정동코드와 건물 좌표를 붙이기 위한 대조표입니다. 행정안전부 도로명주소 개발자센터에서 받은 주소DB 파일(위치정보요약DB 등, 압축을 푼 txt)을 보유 시도별로 올리세요. 머리글이 없어도 열 내용을 보고 역할을 추정하며, 반영 전에 확인할 수 있습니다. 법정동코드표 기준일: <b id="bjVer"></b></p>
+        <div class="filters"><button class="btn pri" id="adBtn">주소DB 파일 올리기</button><input type="file" id="adFile" accept=".txt,.csv" multiple hidden><span class="muted" id="adProg"></span></div>
+        <div id="adPreview" hidden style="margin-top:12px"></div>
+        <div class="tw" style="margin-top:12px"><table class="t" id="adCovT"></table></div></div>
+      <div class="card"><h3>가격지표 월별 업데이트 <small id="pxNote"></small></h3>
+        <p class="muted" style="margin:0 0 8px">매월 반입한 KB 매매가격지수와 동 가격 프록시 파일을 올리면 가격지표 저장소에 누적됩니다. 같은 기준월·지역·유형 값은 새 파일 값으로 바뀌고, 저장된 모든 기준월을 다시 계산합니다. 원천 로우데이터의 4_가격지표 시트는 없어도 됩니다.</p>
+        <div class="filters"><button class="btn pri" id="pxIdxBtn">KB 매매가격지수 파일</button><button class="btn pri" id="pxDongBtn">동 가격 프록시 파일</button><input type="file" id="pxFile" accept=".xlsx,.xls,.csv" hidden><span class="muted">xlsx · csv · 세로형(기준년월 · 시군구코드 · 지수) 또는 KB 데이터허브식 가로형 시계열</span></div>
+        <div id="pxPreview" hidden style="margin-top:12px"></div>
+        <div class="tw" style="margin-top:12px"><table class="t" id="pxCovT"></table></div>
+        <div class="muted" id="pxLog" style="margin-top:8px;font-size:12px"></div></div>
       <div class="card"><h3>기준월 스냅샷 <small id="dStore"></small></h3><div class="tw"><table class="t" id="dSnapT"></table></div></div>
       <div class="grid g2">
         <div class="card"><h3>원천 시스템 대사 <small id="dReconYm"></small></h3>
@@ -425,6 +470,16 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
     <section class="view" id="v-guide" role="tabpanel" hidden><div class="page"><div class="guide" id="guide"></div></div></section>
   </div>
 </div>
+<aside class="chat" id="chat" hidden aria-label="AI 질문">
+  <div class="chat-h"><b>AI 질문</b><span class="muted" id="chatModel"></span><button class="btn sm" id="chatNew">새 대화</button><button class="btn sm" id="chatClose" aria-label="닫기">✕</button></div>
+  <div class="chat-opt"><label for="chatScope" class="muted">보낼 데이터</label><select id="chatScope"><option value="sum">요약 + 시군구·동 집계</option><option value="min">요약만</option><option value="none">보내지 않음 (일반 질문)</option></select><button class="btn sm" id="chatPeek">보낼 내용 보기</button></div>
+  <pre class="chat-peek" id="chatPeekBox" hidden></pre>
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+  <div class="chips chat-sug" id="chatSug"></div>
+  <div class="chat-pass" id="chatPassBox" hidden><input type="password" id="chatPass" placeholder="접속 암호" aria-label="접속 암호" autocomplete="off"><button class="btn sm pri" id="chatPassOk">확인</button></div>
+  <form class="chat-in" id="chatForm"><textarea id="chatQ" rows="2" placeholder="예: 가격 하락지역 익스포저가 큰 곳 알려줘 (Enter 보내기 · Shift+Enter 줄바꿈)" aria-label="질문"></textarea><button class="btn pri" id="chatSend" type="submit">보내기</button></form>
+  <div class="chat-foot" id="chatFoot"></div>
+</aside>
 <div class="toast" id="toast" hidden></div>
 <div class="busy" id="busy" hidden>불러오는 중…</div>
 
@@ -472,6 +527,7 @@ const EWS = [
 const DEFAULTS = {
   ewsWatchYoy:-3, ewsStreak:3, ewsShare:3, ewsLtv:80, ewsAlertYoy:-10,
   hpHigh:60, ltvHigh:80, dispose:10, vworldKey:"",
+  idxMode:"dong", pxMinN:10, pxK:10, pxWindow:3, dongPropagate:50,
   presets:[
     {k:"경미", h:10, c:5,  scope:"all"},
     {k:"중간", h:20, c:10, scope:"all"},
@@ -484,10 +540,10 @@ const SIDO_ALIAS = [
   ["인천광역시",/^인천(광역시|시)?$/],["광주광역시",/^광주(광역시)?$/],["대전광역시",/^대전(광역시|시)?$/],
   ["울산광역시",/^울산(광역시|시)?$/],["세종특별자치시",/^세종(특별자치시|시)?$/],["경기도",/^경기(도)?$/],
   ["강원특별자치도",/^강원(특별자치도|도)?$/],["충청북도",/^(충청북도|충북)$/],["충청남도",/^(충청남도|충남)$/],
-  ["전라북도",/^(전라북도|전북|전북특별자치도)$/],["전라남도",/^(전라남도|전남)$/],["경상북도",/^(경상북도|경북)$/],
-  ["경상남도",/^(경상남도|경남)$/],["제주특별자치도",/^제주(특별자치도|도)$/],
+  ["전북특별자치도",/^(전라북도|전북|전북특별자치도)$/],["전남광주통합특별시",/^(전남광주통합특별시|전남광주|전라남도|전남)$/],["경상북도",/^(경상북도|경북)$/],
+  ["경상남도",/^(경상남도|경남)$/],["제주특별자치도",/^제주(특별자치도|도)?$/],
 ];
-const SIDO_SHORT = {"서울특별시":"서울","부산광역시":"부산","대구광역시":"대구","인천광역시":"인천","광주광역시":"광주","대전광역시":"대전","울산광역시":"울산","세종특별자치시":"세종","경기도":"경기","강원특별자치도":"강원","충청북도":"충북","충청남도":"충남","전라북도":"전북","전라남도":"전남","경상북도":"경북","경상남도":"경남","제주특별자치도":"제주"};
+const SIDO_SHORT = {"서울특별시":"서울","부산광역시":"부산","대구광역시":"대구","인천광역시":"인천","광주광역시":"광주","대전광역시":"대전","울산광역시":"울산","세종특별자치시":"세종","경기도":"경기","강원특별자치도":"강원","충청북도":"충북","충청남도":"충남","전라북도":"전북","전라남도":"전남","경상북도":"경북","경상남도":"경남","제주특별자치도":"제주","전남광주통합특별시":"전남광주","전북특별자치도":"전북"};
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -562,30 +618,60 @@ const LS = {
 };
 
 /* =====================================================================
-   2. 행정구역 보조표 (시군구 코드·대표점, 행정동 대표점)
+   2. 행정구역: 현행 법정동코드표 · 옛 코드 변환 · 도로명주소 사전
    ===================================================================== */
-const SGG = GEO.sgg;                         // 코드 → [시도, 시군구, 위도, 경도]
-const SGG_ALT = {"52":"45","45":"52","51":"42","42":"51"};  // 전북·강원 특별자치도 코드 변경 대응
-function sggInfo(cd){
-  if(!cd) return null;
-  if(SGG[cd]) return {cd, sido:SGG[cd][0], sgg:SGG[cd][1], lat:SGG[cd][2], lng:SGG[cd][3]};
-  const alt = SGG_ALT[cd.slice(0,2)] && SGG_ALT[cd.slice(0,2)] + cd.slice(2);
-  return alt && SGG[alt] ? {cd:alt, sido:SGG[alt][0], sgg:SGG[alt][1], lat:SGG[alt][2], lng:SGG[alt][3]} : null;
+const BJ = GEO.bjd;   // s: 현행 시군구 {코드:[시도,시군구,위도,경도,상위시]}, e: 읍면동·리, al: 폐지→현행, old: 현행→2023 대표점 코드
+const SIDO_GROUP = n => /광주|전라남|전남/.test(n||"") ? "광주전남" : /전라북|전북/.test(n||"") ? "전북" : /강원/.test(n||"") ? "강원" : (n||"");
+const SIDO_FAMILY = {"29":"12","46":"12","45":"52","42":"51"};
+/** 어떤 시군구코드(옛 코드 포함)든 현행 코드 목록으로. 통합은 1개, 분할은 여러 개 */
+function canonSgg(cd){
+  cd = String(cd||"").slice(0,5); if(cd.length!==5) return [];
+  if(BJ.s[cd]) return [cd];
+  if(BJ.al[cd]) return BJ.al[cd];
+  if(cd.endsWith("000")){ const f = (SIDO_FAMILY[cd.slice(0,2)]||cd.slice(0,2)) + "000"; return [f]; }
+  return [];
 }
-const emdBase = n => String(n||"").replace(/[0-9.·,]+(?=(동|가)$)/, "").replace(/제(?=\d)/,"");
+function sggInfo(cd){
+  const c = canonSgg(cd)[0]; if(!c || !BJ.s[c]) return null;
+  const v = BJ.s[c]; return {cd:c, sido:v[0], sgg:v[1], lat:v[2], lng:v[3], city:!!v[4]};
+}
+const sggKids = cd => Object.keys(BJ.s).filter(k => k!==cd && k.slice(0,4)===cd.slice(0,4));
+const BJE = {};
+function emdList(cd){
+  if(!BJE[cd]) BJE[cd] = (BJ.e[cd]||"").split("|").filter(Boolean).map(x => { const i = x.indexOf(":"); return {tail:x.slice(0,i), name:x.slice(i+1)}; });
+  return BJE[cd];
+}
+const bjdName = b => b && b.length===10 ? (emdList(b.slice(0,5)).find(x=>x.tail===b.slice(5))?.name || "") : "";
+/** 시군구(상위 시면 소속 구까지) 안에서 법정동·리 이름으로 10자리 코드 찾기 */
+function bjdByName(cd, emd, ri){
+  if(!emd) return null;
+  const cands = [...new Set(canonSgg(cd).flatMap(c => [c, ...(BJ.s[c]?.[4] ? sggKids(c) : [])]))];
+  const want = ri ? `${emd} ${ri}` : emd;
+  for(const c of cands){ const h = emdList(c).find(x => x.name===want); if(h) return {bjd:c+h.tail, name:h.name, sgg:c}; }
+  if(ri) for(const c of cands){ const h = emdList(c).find(x => x.name===emd); if(h) return {bjd:c+h.tail, name:h.name, sgg:c}; }
+  return null;
+}
+const emdBase = n => String(n||"").split(" ")[0].replace(/[0-9.·,]+(?=(동|가)$)/, "").replace(/제(?=\d)/,"");
+/** 읍면동 대표점: 2023 행정동 대표점 중 이름이 맞는 것의 평균 */
 function emdPoint(cd, emd){
-  if(!emd || !GEO.emd[cd]) return null;
-  const list = GEO.emd[cd];
-  let hit = list.filter(e => e[0] === emd);
-  if(!hit.length){ const b = emdBase(emd); hit = list.filter(e => emdBase(e[0]) === b || e[0].startsWith(b.replace(/(동|가)$/,""))); }
+  if(!emd) return null;
+  const olds = BJ.old[cd] || [cd];
+  const list = olds.flatMap(o => GEO.emd[o] || []);
+  const e0 = String(emd).split(" ")[0];
+  let hit = list.filter(e => e[0] === e0);
+  if(!hit.length){ const b = emdBase(e0); hit = list.filter(e => emdBase(e[0]) === b || e[0].startsWith(b.replace(/(동|가)$/,""))); }
   if(!hit.length) return null;
   return {lat: sum(hit,e=>e[1])/hit.length, lng: sum(hit,e=>e[2])/hit.length};
 }
-const SGG_LIST = Object.entries(SGG).map(([cd,v]) => ({cd, sido:v[0], sgg:v[1], key:v[1].replace(/\s/g,"")}));
+/* 시군구 이름표: 현행 + 옛 이름(2023 기준 폐지분 → 현행 코드로 연결) */
+const SGG_LIST = [
+  ...Object.entries(BJ.s).map(([cd,v]) => ({cd, to:[cd], sido:v[0], grp:SIDO_GROUP(v[0]), sgg:v[1], key:v[1].replace(/\s/g,""), city:!!v[4]})),
+  ...Object.entries(BJ.al).filter(([o]) => GEO.sgg[o]).map(([o,to]) => ({cd:o, to, legacy:true, sido:GEO.sgg[o][0], grp:SIDO_GROUP(GEO.sgg[o][0]), sgg:GEO.sgg[o][1], key:GEO.sgg[o][1].replace(/\s/g,"")})),
+];
 function sidoOf(tok){ if(!tok) return null; for(const [full, re] of SIDO_ALIAS) if(re.test(tok) || tok === full) return full; return null; }
 const normAddrKey = a => String(a||"").replace(/\s+/g,"");
 
-/** 비표준 주소 → 시군구코드·읍면동 (규칙 기반 정규화: 괄호, 동·호수, 공백, 시도 약칭) */
+/** 주소 → 시군구(현행 코드 후보) · 읍면동 · 리. 괄호 참고항목, 동·호수, 시도 약칭, 옛 행정구역명 처리 */
 function parseAddr(addr, sidoHint, sggHint){
   const raw = String(addr||"");
   const paren = (raw.match(/\(([^)]*)\)/)||[])[1] || "";
@@ -593,37 +679,83 @@ function parseAddr(addr, sidoHint, sggHint){
   let toks = s.split(" ").filter(Boolean);
   let sido = sidoOf(toks[0]);
   if(sido) toks = toks.slice(1); else sido = sidoOf(String(sidoHint||"").trim());
-  if(sido === "세종특별자치시"){ const cd = "36110"; return {cd, emd: findEmd(toks, paren, cd), how:"주소정제"}; }
-  const pool = SGG_LIST.filter(x => !sido || x.sido === sido);
-  let cand = [];
+  if(sido === "세종특별자치시"){ if(toks[0]==="세종시") toks = toks.slice(1); const cd = "36110"; return {cd, cands:[cd], ...findEmd(toks, paren, [cd]), how:"주소정제"}; }
+  const pool = SGG_LIST.filter(x => !sido || x.grp === SIDO_GROUP(sido));
+  let cand = [], used = 0;
   const hint = String(sggHint||"").replace(/\s/g,"");
   if(hint) cand = pool.filter(x => x.key === hint);
   for(let i=0; !cand.length && i<Math.min(3,toks.length); i++){
     const two = toks[i] + (toks[i+1]||"");
-    cand = pool.filter(x => x.key === two);
-    if(!cand.length) cand = pool.filter(x => x.key === toks[i]);
-    if(!cand.length && /시$/.test(toks[i])) cand = pool.filter(x => x.key.startsWith(toks[i]) && /구$/.test(x.key));
+    cand = pool.filter(x => x.key === two); used = i+2;
+    if(!cand.length){ cand = pool.filter(x => x.key === toks[i]); used = i+1; }
   }
   if(!cand.length) return null;
-  if(cand.length > 1){
-    const e = findEmd(toks, paren, null);
-    const narrowed = e ? cand.filter(c => emdPoint(c.cd, e)) : [];
-    if(narrowed.length === 1) cand = narrowed; else return null;
-  }
-  return {cd:cand[0].cd, emd:findEmd(toks, paren, cand[0].cd), how:"주소정제"};
+  if(cand.some(c => !c.legacy)) cand = cand.filter(c => !c.legacy);   // 현행 이름 우선
+  const rest = toks.slice(used);
+  let targets = [...new Set(cand.flatMap(c => c.to))];
+  const e = findEmd(rest.length ? rest : toks, paren, targets);
+  if(targets.length > 1 && e.emd){ const hit = targets.filter(t => bjdByName(t, e.emd, e.ri)); if(hit.length) targets = hit; }
+  if(targets.length > 1 && cand.length > 1 && !cand.some(c=>c.legacy)) return null;   // 같은 이름 시군구가 여럿(시도 미기재)
+  return {cd:targets[0], cands:targets, ...e, how:"주소정제"};
 }
-function findEmd(toks, paren, cd){
-  const all = [...String(paren).split(/[ ,]/), ...toks];
-  for(const t of all){
-    if(/^[가-힣0-9]+(동|가|읍|면)$/.test(t) && !/(로|길)\d*$/.test(t) && (!cd || emdPoint(cd, t))) return t;
+function findEmd(toks, paren, cds){
+  const all = [...String(paren).split(/[ ,]/), ...toks].filter(Boolean);
+  for(let i=0; i<all.length; i++){
+    const t = all[i];
+    if(!/^[가-힣0-9·]+(동|가|읍|면)$/.test(t) || /(로|길)\d*$/.test(t) || /^\d+동$/.test(t)) continue;
+    const ri = /(읍|면)$/.test(t) && /^[가-힣0-9]+리$/.test(all[i+1]||"") ? all[i+1] : "";
+    if(!cds || cds.some(c => bjdByName(c, t, ri) || emdPoint(c, t))) return {emd:t, ri};
   }
-  return "";
+  return {emd:"", ri:""};
+}
+/** 도로명주소에서 도로명 · 건물번호 추출: '올림픽로 300', '가상로 12길 5', '세종대로23길 4-1', '지하 12' */
+function parseRoad(addr){
+  const t = String(addr||"").replace(/\([^)]*\)/g," ").replace(/,/g," ").replace(/\s+/g," ").trim().split(" ");
+  for(let i=0; i<t.length; i++){
+    let road = t[i], j = i+1, inl = null;
+    const glued = road.match(/^([가-힣A-Za-z0-9·.]*[가-힣](?:로|길))(\d+)(?:-(\d+))?$/);
+    if(glued){ road = glued[1]; inl = {main:+glued[2], sub:+(glued[3]||0)}; }
+    if(!/[가-힣](로|길)$/.test(road) && !/[가-힣]로\d+(번)?길$/.test(road)) continue;
+    if(/^\d+(번)?길$/.test(t[j]||"")){ road += t[j]; j++; }
+    let under = 0; if(t[j]==="지하"){ under = 1; j++; }
+    const m = inl ? null : (t[j]||"").match(/^(\d+)(?:-(\d+))?(번지)?$/);
+    return {road, main: inl ? inl.main : m ? +m[1] : null, sub: inl ? inl.sub : m && m[2] ? +m[2] : 0, under};
+  }
+  return null;
+}
+/* 도로명주소 사전 (행안부 주소DB에서 만든 '시 + 도로명 + 건물번호 → 법정동코드·좌표') */
+const ADS = {rows:[], idx:new Map(), road:new Map(), files:[], sample:false};
+let GEO_USE_ADS = true;
+const cityKey = cd => String(cd).slice(0,4);
+function adsIndex(){
+  ADS.idx = new Map(); ADS.road = new Map();
+  ADS.rows.forEach((r,i) => {   // r = [시군구코드, 도로명, 본번, 부번, 법정동코드, 위도, 경도, 법정동명]
+    const ck = cityKey(canonSgg(r[0])[0] || r[0]);
+    const k = `${ck}|${r[1]}|${r[2]}`;
+    if(!ADS.idx.has(`${k}-${r[3]}`)) ADS.idx.set(`${k}-${r[3]}`, i);
+    if(!ADS.idx.has(k)) ADS.idx.set(k, i);
+    const rk = `${ck}|${r[1]}`, prev = ADS.road.get(rk);
+    ADS.road.set(rk, prev==null ? r[4] : prev===r[4] ? prev : "*");
+  });
+}
+function adsLookup(cands, pr){
+  if(!GEO_USE_ADS || !ADS.rows.length || !pr) return null;
+  const keys = [...new Set(cands.flatMap(c => [c, ...(BJ.s[c]?.[4] ? sggKids(c) : [])]).map(cityKey))];
+  for(const ck of keys){
+    if(pr.main!=null){
+      let i = ADS.idx.get(`${ck}|${pr.road}|${pr.main}-${pr.sub}`); if(i==null) i = ADS.idx.get(`${ck}|${pr.road}|${pr.main}`);
+      if(i!=null){ const r = ADS.rows[i]; return {bjd:r[4], lat:r[5], lng:r[6], name:r[7], level:"건물"}; }
+    }
+    const rb = ADS.road.get(`${ck}|${pr.road}`);
+    if(rb && rb!=="*") return {bjd:rb, level:"도로"};
+  }
+  return null;
 }
 /** 미매칭 주소의 정규화 후보(문자 bigram 유사도 상위) — 최종 확정은 담당자 */
 function suggest(addr){
   const bg = s => { const a=new Set(); s=s.replace(/\s/g,""); for(let i=0;i<s.length-1;i++) a.add(s.slice(i,i+2)); return a; };
   const A = bg(addr);
-  return SGG_LIST.map(x => { const B = bg(x.sido + x.sgg); let n=0; B.forEach(b=>A.has(b)&&n++); return {...x, sc: 2*n/(A.size+B.size||1)}; })
+  return SGG_LIST.filter(x=>!x.legacy).map(x => { const B = bg(x.sido + x.sgg); let n=0; B.forEach(b=>A.has(b)&&n++); return {...x, sc: 2*n/(A.size+B.size||1)}; })
     .sort((a,b)=>b.sc-a.sc).slice(0,5);
 }
 
@@ -656,36 +788,80 @@ function expandSample(s){ // {sheet:{c:[...], r:[[...]]}} → {sheet:[rec]}
 /* =====================================================================
    4. 가격지수
    ===================================================================== */
+/* 가격 저장소: 매월 반입하는 KB 지수·동 프록시를 원천 로우데이터와 따로 누적 (IndexedDB) */
+const PXS = {idx:[], dong:[], log:[], sample:false};
+const PX_TYPES = {"아파트":["아파트","APT","아파"],"연립·다세대":["연립","다세대"],"단독·다가구":["단독","다가구"],"오피스텔":["오피스텔"],"주택종합":["종합","전체","주택"]};
+function canonType(t){ t = String(t||"").trim(); if(!t) return "주택종합"; for(const [k,al] of Object.entries(PX_TYPES)) if(t===k || al.some(a=>t.includes(a))) return k; return t; }
+const typeTries = t => [...new Set([canonType(t), ...(canonType(t)==="오피스텔"?["아파트"]:[]), "주택종합", "아파트"])];
+const pxKey = r => r.SGG_CD!=null ? `I|${r.BASE_YM}|${r.SGG_CD}|${canonType(r.IDX_TYPE)}` : `D|${r.BASE_YM}|${r.BJD_CD||(r.SIGUNGU+"|"+r.EMD)}|${canonType(r.PX_TYPE)}`;
 function buildPrices(recs){
   const m = new Map(), srcs = new Set(); let latest = "";
   for(const r of recs||[]){
     let cd = String(r.SGG_CD ?? "").replace(/\D/g,""); if(cd.length===2) cd += "000"; if(cd.length!==5) continue;
     const ym = normYm(r.BASE_YM), v = num(r.IDX_VAL); if(!ym || v==null) continue;
-    const key = `${cd}|${r.IDX_TYPE||"전체"}`;
+    const cc = canonSgg(cd)[0] || cd;   // 옛 코드(예: 광주 29140)로 된 지수도 현행 코드(12240)에 연결
+    const key = `${cc}|${canonType(r.IDX_TYPE)}`;
     if(!m.has(key)) m.set(key, new Map());
     m.get(key).set(ym, v); if(ym > latest) latest = ym; if(r.IDX_SRC) srcs.add(r.IDX_SRC);
   }
   return {m, latest, srcs:[...srcs], cache:new Map()};
 }
-function seriesFor(P, cd){
-  if(P.cache.has(cd)) return P.cache.get(cd);
+function seriesFor(P, cd, type="아파트"){
+  const ck = cd + "|" + type;
+  if(P.cache.has(ck)) return P.cache.get(ck);
   let res = null;
-  const alt = SGG_ALT[cd.slice(0,2)] ? SGG_ALT[cd.slice(0,2)] + cd.slice(2) : null;
-  const tries = [[cd,"시군구"],[alt,"시군구"],[cd.slice(0,2)+"000","시도 대체"],[alt&&alt.slice(0,2)+"000","시도 대체"]];
+  const parent = cd.slice(0,4) + "0";   // 신설 구에 지수가 없으면 상위 시 (예: 화성시 동탄구 → 화성시)
+  const tries = [[cd,"시군구"],[parent!==cd?parent:null,"상위 시"],[cd.slice(0,2)+"000","시도 대체"]];
   outer: for(const [c,level] of tries){
     if(!c) continue;
-    for(const t of ["아파트","전체","주택종합"]) if(P.m.has(`${c}|${t}`)){ res = {s:P.m.get(`${c}|${t}`), level, code:c, type:t}; break outer; }
+    for(const t of typeTries(type)) if(P.m.has(`${c}|${t}`)){ res = {s:P.m.get(`${c}|${t}`), level, code:c, type:t}; break outer; }
     for(const [k,s] of P.m) if(k.startsWith(c+"|")){ res = {s, level, code:c, type:k.split("|")[1]}; break outer; }
   }
-  P.cache.set(cd, res); return res;
+  P.cache.set(ck, res); return res;
 }
 function valAt(s, ym){ if(s.has(ym)) return s.get(ym); let best=null, by=""; for(const [k,v] of s) if(k<=ym && k>by){ by=k; best=v; } return best; }
-function idxStats(P, cd, base){
-  const f = seriesFor(P, cd); if(!f) return null;
+function idxStats(P, cd, base, type){
+  const f = seriesFor(P, cd, type); if(!f) return null;
   const s = f.s, now = valAt(s, base), pm = s.get(ymAdd(base,-1)), py = s.get(ymAdd(base,-12));
   let streak = 0; for(let k=0;k<24;k++){ const a=s.get(ymAdd(base,-k)), b=s.get(ymAdd(base,-k-1)); if(a!=null && b!=null && a<b) streak++; else break; }
-  return {level:f.level, code:f.code, now, mom: now&&pm ? now/pm-1 : null, yoy: now&&py ? now/py-1 : null, streak, s};
+  return {level:f.level, code:f.code, type:f.type, now, mom: now&&pm ? now/pm-1 : null, yoy: now&&py ? now/py-1 : null, streak, s};
 }
+
+/* 동 가격 프록시: 법정동 × 건물유형 평균가격(확정 아님) → 이동평균 지수.
+   키는 법정동코드 10자리와 '시군구코드|읍면동명' 두 가지로 걸어 주소정제 건도 찾게 한다. */
+function buildDong(recs){
+  const m = new Map(); let latest = ""; const srcs = new Set();
+  for(const r of recs||[]){
+    const ym = normYm(r.BASE_YM), avg = num(r.PX_AVG); if(!ym || avg==null || avg<=0) continue;
+    const bjd = String(r.BJD_CD ?? "").replace(/\D/g,"");
+    let sgg = bjd.length>=5 ? sggInfo(bjd.slice(0,5))?.cd : null;
+    if(!sgg && (r.SIGUNGU||r.SIDO)) sgg = parseAddr(`${r.SIDO||""} ${r.SIGUNGU||""}`)?.cd || null;
+    const emd = String(r.EMD||"").trim(), type = canonType(r.PX_TYPE);
+    const keys = []; if(bjd.length===10) keys.push(bjd); if(sgg && emd) keys.push(`${sgg}|${emdBase(emd)}`);
+    if(!keys.length) continue;
+    let ser = null; for(const k of keys){ ser = ser || m.get(`${k}#${type}`); }
+    if(!ser){ ser = new Map(); ser.meta = {sgg, emd, type, bjd: bjd.length===10?bjd:"", unit:r.PX_UNIT||""}; }
+    keys.forEach(k => m.set(`${k}#${type}`, ser));
+    ser.set(ym, {avg, n: num(r.PX_CNT)}); if(ym > latest) latest = ym; if(r.PX_SRC) srcs.add(r.PX_SRC);
+  }
+  return {m, latest, srcs:[...srcs]};
+}
+function dongSeries(DG, r){
+  if(!DG || !DG.m.size || !r.sggCd) return null;
+  const keys = [r.bjd, `${r.sggCd}|${emdBase(r.emd)}`].filter(k => k && !k.endsWith("|"));
+  for(const t of [canonType(r.type), "주택종합"]) for(const k of keys){ const s = DG.m.get(`${k}#${t}`); /* 동 지수는 같은 유형(또는 동 전체)만, 없으면 시군구 지수 */ if(s) return {s, type:t, key:`${r.sggCd}|${emdBase(s.meta.emd||r.emd)}`}; }
+  return null;
+}
+function smoothAt(s, ym, w){ let t=0, c=0, n=0; for(let k=0;k<w;k++){ const v = s.get(ymAdd(ym,-k)); if(v){ t += v.avg; c++; n += v.n ?? 0; } } return c ? {v:t/c, n, c} : null; }
+function dongStats(f, base, aym, w){
+  w = Math.max(1, Math.round(w||1));
+  const now = smoothAt(f.s, base, w); if(!now) return null;
+  const py = smoothAt(f.s, ymAdd(base,-12), w), pm = smoothAt(f.s, ymAdd(base,-1), w);
+  let streak = 0; for(let k=0;k<24;k++){ const a=smoothAt(f.s,ymAdd(base,-k),w), b=smoothAt(f.s,ymAdd(base,-k-1),w); if(a && b && a.v<b.v) streak++; else break; }
+  const th = aym && aym < base ? smoothAt(f.s, aym, w) : null;
+  return {now:now.v, n:now.n, yoy: py ? now.v/py.v-1 : null, mom: pm ? now.v/pm.v-1 : null, streak, ratio: !aym || aym>=base ? 1 : th ? now.v/th.v : null, type:f.type, unit:f.s.meta.unit, key:f.key};
+}
+const blend = (w, d, s) => d==null ? s : s==null ? d : w*d + (1-w)*s;
 
 /* =====================================================================
    5. 표준화 · 점검 · 주소정제 · 지수조정  → 스냅샷
@@ -693,7 +869,11 @@ function idxStats(P, cd, base){
 function processSnapshot(raw, meta, dict){
   const issues = [];
   const add = (lv, cat, src, id, msg) => issues.push({lv, cat, src, id, msg});
-  const P = buildPrices(raw["4_가격지표"]);
+  const usePx = !PXS.sample || meta.sample;
+  GEO_USE_ADS = !ADS.sample || !!meta.sample;   // 가상 주소사전은 가상 스냅샷에만   // 가상 가격자료는 가상 스냅샷에만 적용
+  const P = buildPrices([...(raw["4_가격지표"]||[]), ...(usePx ? PXS.idx : [])]);   // 저장소 값이 같은 키를 덮어씀
+  const DG = buildDong([...(raw["5_동가격프록시"]||[]), ...(usePx ? PXS.dong : [])]);
+  const SET = APP.set, useDong = SET.idxMode==="dong" && DG.m.size;
   const rows = [];
   const yms = {};
   const alloc = new Map(), seen = new Set();
@@ -718,19 +898,33 @@ function processSnapshot(raw, meta, dict){
   const base = meta.ym || Object.entries(yms).sort((a,b)=>b[1]-a[1])[0]?.[0] || P.latest || "";
   for(const [ym,n] of Object.entries(yms)) if(ym!==base) add("확인","기준월","",`${ym}`,`기준년월 ${ym} 인 행 ${n}건 (주 기준월 ${base})`);
   if(P.latest && P.latest < base) add("확인","가격지수","","",`가격지표 최신월 ${ymLabel(P.latest)} < 기준월 ${ymLabel(base)} → 최신 지수로 대체 계산`);
-  if(!P.m.size) add("오류","가격지수","","","4_가격지표 시트가 없거나 비어 있음 → 지수조정·하락지역 산출 불가");
+  if(!P.m.size) add("오류","가격지수","","","가격지표가 없음(4_가격지표 시트 또는 가격지표 저장소) → 지수조정·하락지역 산출 불가");
 
   for(const r of rows){
     geocode(r, dict, add);
     if(r.appr===0) add("오류","평가금액",r.src,r.id,"평가금액 0원 → LTV·지수조정 산출 제외");
     // 가격지수
-    const st = r.sggCd ? idxStats(P, r.sggCd, base) : null;
+    const st = r.sggCd ? idxStats(P, r.sggCd, base, r.type) : null;
+    const aym = ymOfIso(r.apprDt);
+    r.sggYoy = st?.yoy ?? null; r.sggType = st?.type || "";
     r.yoy = st?.yoy ?? null; r.mom = st?.mom ?? null; r.idxLevel = st ? st.level : (r.sggCd ? "없음" : null);
     r.ratio = null;
     if(st && r.appr){
-      const aym = ymOfIso(r.apprDt);
       if(!aym || aym >= base) r.ratio = 1;
       else { const then = st.s.get(aym); r.ratio = then && st.now ? st.now / then : null; }
+    }
+    r.dong = null;
+    if(useDong && r.src!=="투자부동산"){
+      const f = dongSeries(DG, r), ds = f && dongStats(f, base, aym, SET.pxWindow);
+      if(ds){
+        const cred = ds.n >= SET.pxMinN, w = cred ? ds.n / (ds.n + SET.pxK) : 0;
+        r.dong = {...ds, cred, w};
+        if(cred){
+          r.yoy = blend(w, ds.yoy, r.yoy); r.mom = blend(w, ds.mom, r.mom);
+          if(r.appr) r.ratio = blend(w, ds.ratio, r.ratio);
+          r.idxLevel = "동 프록시";
+        }
+      }
     }
     if(r.src==="투자부동산"){ r.adjVal = r.appr; r.adjLtv = null; r.ratio = 1; }
     else {
@@ -744,7 +938,12 @@ function processSnapshot(raw, meta, dict){
   sggNoIdx.forEach((n,cd)=>add("확인","가격지수","",cd,`${n}(${cd}) 시군구·시도 지수 모두 없음`));
   const subst = new Map(); rows.forEach(r => { if(r.idxLevel==="시도 대체") subst.set(r.sggCd, `${r.sido} ${r.sgg}`); });
   subst.forEach((n,cd)=>add("정보","가격지수","",cd,`${n}: 시군구 지수 미제공 → 시도 지수로 대체`));
-  return {ym:base, file:meta.file, loadedAt:meta.loadedAt, sample:!!meta.sample, rows, issues, prices:P, raw};
+  if(useDong){
+    const used = rows.filter(r=>r.dong?.cred).length, weak = rows.filter(r=>r.dong && !r.dong.cred).length;
+    add("정보","동 프록시","","",`동 가격 프록시 반영 ${used}건, 표본 부족(${SET.pxMinN}건 미만)으로 시군구 지수 사용 ${weak}건`);
+    if(DG.latest && DG.latest < base) add("확인","동 프록시","","",`동 프록시 최신월 ${ymLabel(DG.latest)} < 기준월 ${ymLabel(base)}`);
+  }
+  return {ym:base, file:meta.file, loadedAt:meta.loadedAt, sample:!!meta.sample, rows, issues, prices:P, dongPx:DG, raw};
 }
 
 function standardize(src, r, seq){
@@ -774,36 +973,47 @@ function standardize(src, r, seq){
   return o;
 }
 
-/** 1) 원천 법정동코드 → 2) 매핑 사전 → 3) 규칙 기반 정규화 → 미매칭 / 좌표: 건별 → 읍면동 대표점 → 시군구 대표점 */
+/** 지역 부여 순서: 1) 원천 법정동코드 → 2) 매핑 사전(담당자 확정) → 3) 도로명주소 사전(건물·도로) → 4) 법정동 이름(괄호 참고항목·지번·동 이름) → 5) 시군구만 → 미매칭
+    좌표: 원천 좌표 → 도로명주소 사전 건물좌표 → 읍면동 대표점 → 시군구 대표점 */
 function geocode(r, dict, add){
-  let cd=null, emd=String(r.emdRaw||"").trim(), how=null;
+  let bjd = "", how = null, emd = String(r.emdRaw||"").trim(), cands = [], pt = null;
   const b = r.bjdRaw;
   if(b && !/^\d{10}$/.test(b)) add("오류","자릿수",r.src,r.id,`법정동코드 '${b}' 10자리 아님 → 주소로 재분류`);
-  if(/^\d{10}$/.test(b) && sggInfo(b.slice(0,5))){ cd = sggInfo(b.slice(0,5)).cd; how = "원천"; r.bjd = b; }
-  else {
-    r.bjd = "";
+  if(/^\d{10}$/.test(b) && canonSgg(b).length){
+    bjd = b; how = "원천";
+    if(!BJ.s[b.slice(0,5)]) add("확인","주소정제",r.src,r.id,`법정동코드 ${b}는 옛 코드(행정구역 개편) → 현행 ${canonSgg(b).map(c=>BJ.s[c]?.[1]).join("·")}로 집계`);
+  } else {
     const d = dict[normAddrKey(r.addr)];
-    if(d && sggInfo(d.cd)){ cd = d.cd; emd = emd || d.emd || ""; how = "매핑사전"; }
-    else { const m = parseAddr(r.addr, r.sidoRaw, r.sggRaw); if(m){ cd = m.cd; emd = emd || m.emd; how = "주소정제"; } }
-    if(b && /^\d{10}$/.test(b) && !sggInfo(b.slice(0,5))) add("확인","주소정제",r.src,r.id,`법정동코드 ${b} 의 시군구(${b.slice(0,5)})가 코드표에 없음(폐지·신설 확인)`);
+    if(d && (d.bjd || sggInfo(d.cd))){ bjd = d.bjd || ""; cands = [sggInfo(d.cd)?.cd].filter(Boolean); emd = emd || d.emd || ""; how = "매핑사전"; }
+    const m = how ? null : parseAddr(r.addr, r.sidoRaw, r.sggRaw);
+    if(m){
+      cands = m.cands; emd = emd || m.emd;
+      const hit = adsLookup(cands, parseRoad(r.addr));
+      if(hit){ bjd = hit.bjd; how = hit.level==="건물" ? "도로명사전" : "도로명사전(도로)"; if(hit.lat!=null) pt = {lat:hit.lat, lng:hit.lng}; emd = hit.name || emd; }
+      else { const bn = bjdByName(m.cd, emd, m.ri); if(bn){ bjd = bn.bjd; how = "법정동명"; } else how = "주소정제"; }
+    }
+    if(!m && !how && emd && (r.sggRaw||r.sidoRaw)){ const p2 = parseAddr(`${r.sidoRaw||""} ${r.sggRaw||""} ${emd}`); if(p2){ cands = p2.cands; const bn = bjdByName(p2.cd, emd, p2.ri); if(bn){ bjd = bn.bjd; how = "법정동명"; } else how = "주소정제"; } }
   }
-  r.bjdHow = how; r.sggCd = cd || "";
-  const info = sggInfo(cd);
+  r.bjd = bjd; r.bjdHow = how;
+  const info = sggInfo(bjd ? bjd.slice(0,5) : cands[0]);
   if(!info){
-    r.sido = r.sidoRaw; r.sgg = r.sggRaw; r.emd = emd; r.geo = "미매칭"; r.lat = null; r.lng = null;
+    r.sido = r.sidoRaw; r.sgg = r.sggRaw; r.emd = emd; r.sggCd = ""; r.geo = "미매칭"; r.lat = null; r.lng = null;
     add("오류","주소정제",r.src,r.id,`지역 미확정: '${r.addr||"주소 없음"}' → 지도·지역집계 제외, 매핑 사전으로 확정 필요`);
     return;
   }
-  r.sido = info.sido; r.sgg = info.sgg; r.emd = emd;
-  if(how==="주소정제") add("정보","주소정제",r.src,r.id,`주소로 시군구 분류: ${info.sido} ${info.sgg}${emd?" "+emd:""} (법정동코드 10자리는 주소DB 매칭 필요)`);
+  r.sggCd = info.cd; r.sido = info.sido; r.sgg = info.sgg;
+  r.emd = (bjd && bjdName(bjd)) || emd || "";
+  if(how==="주소정제") add("확인","주소정제",r.src,r.id,`동을 정하지 못해 시군구까지만 분류: ${info.sido} ${info.sgg} → 도로명주소 사전 등록 또는 주소에 (법정동) 참고항목 필요`);
+  if(how==="도로명사전(도로)") add("정보","주소정제",r.src,r.id,`건물번호가 사전에 없어 도로 기준으로 ${r.emd} 확정 → 좌표는 동 대표점`);
   const lat = r.latRaw, lng = r.lngRaw;
   if(lat!=null && lng!=null && lat>33 && lat<39 && lng>124 && lng<132){
     r.lat = lat; r.lng = lng; r.geo = "건별";
-    const km = haversine(lat,lng,info.lat,info.lng);
+    const km = info.lat!=null ? haversine(lat,lng,info.lat,info.lng) : 0;
     if(km > 35) add("확인","좌표",r.src,r.id,`좌표가 ${info.sgg} 중심에서 ${km.toFixed(0)}km 떨어짐 → 좌표 또는 주소 확인`);
-  } else {
+  } else if(pt){ r.lat = pt.lat; r.lng = pt.lng; r.geo = "건물좌표(사전)"; }
+  else {
     if(lat!=null || lng!=null) add("확인","좌표",r.src,r.id,`좌표 범위 이상(${lat}, ${lng}) → 대표점으로 대체`);
-    const p = emdPoint(info.cd, emd);
+    const p = emdPoint(info.cd, r.emd);
     if(p){ r.lat = p.lat; r.lng = p.lng; r.geo = "읍면동 대표점"; }
     else { r.lat = info.lat; r.lng = info.lng; r.geo = "시군구 대표점"; }
   }
@@ -846,12 +1056,14 @@ function aggregate(rows, level, prices, base){
     const k = key(r);
     if(!g.has(k)) g.set(k, {k, cd:r.sggCd, sido:r.sido, sgg:r.sgg, emd:r.emd, name: level==="sido" ? r.sido : level==="emd" ? `${SIDO_SHORT[r.sido]||""} ${r.sgg} ${r.emd||"(미상)"}` : `${SIDO_SHORT[r.sido]||r.sido} ${r.sgg}`, n:0, tot:0, by:{}, hiLtv:0, lat:0, lng:0, nll:0});
     const a = g.get(k); a.n++; a.tot += r.expo; a.by[r.src] = (a.by[r.src]||0) + r.expo; all += r.expo;
+    if(r.yoy!=null){ a.yw = (a.yw||0) + r.yoy*r.expo; a.mw = (a.mw||0) + (r.mom??0)*r.expo; a.we = (a.we||0) + r.expo; }
     if(r.src==="주택담보대출" && r.adjLtv > APP.set.ewsLtv/100) a.hiLtv++;
     if(r.lat!=null){ a.lat += r.lat; a.lng += r.lng; a.nll++; }
   }
   for(const a of g.values()){
     a.share = all ? a.tot/all : 0;
-    if(level!=="sido"){ const st = idxStats(prices, a.cd, base); a.yoy = st?.yoy ?? null; a.mom = st?.mom ?? null; a.streak = st?.streak ?? 0; a.idxLevel = st?.level ?? "없음"; }
+    if(level==="emd"){ a.yoy = a.we ? a.yw/a.we : null; a.mom = a.we ? a.mw/a.we : null; a.streak = 0; a.idxLevel = "행별 가중"; }
+    else if(level!=="sido"){ const st = idxStats(prices, a.cd, base); a.yoy = st?.yoy ?? null; a.mom = st?.mom ?? null; a.streak = st?.streak ?? 0; a.idxLevel = st?.level ?? "없음"; }
     else { const ys = rows.filter(r=>r.sido===a.k && r.yoy!=null); a.yoy = ys.length ? sum(ys,r=>r.yoy*r.expo)/sum(ys,r=>r.expo) : null; }
     if(a.nll){ a.lat/=a.nll; a.lng/=a.nll; }
   }
@@ -868,9 +1080,26 @@ function derive(){
   const cagg = cmp ? aggregate(cmp.rows, "sgg", cmp.prices, cmp.ym) : null;
   const mid = st.presets.find(p=>p.k==="중간") || st.presets[1];
   const midRes = runStress(rows, {h:mid.h/100, c:mid.c/100, d:st.dispose/100, scope:"all", regions:new Set()});
+  const dong = new Map();
+  for(const r of rows){
+    if(!r.dong || !r.sggCd) continue;
+    const k = `${r.dong.key}#${r.dong.type}`;
+    if(!dong.has(k)){
+      // 동 등급은 전년대비 하락폭으로만 매김 (평균가 프록시는 월별 잡음이 커서 연속하락은 참고 표시)
+      const d = r.dong, g = !d.cred ? null : (d.yoy!=null && d.yoy <= st.ewsAlertYoy/100) ? 3 : (d.yoy!=null && d.yoy <= st.ewsWatchYoy/100) ? 1 : 0;
+      dong.set(k, {k, cd:r.sggCd, sido:r.sido, sgg:r.sgg, emd:r.emd, name:`${SIDO_SHORT[r.sido]||""} ${r.sgg} ${r.emd}`, type:d.type, d, grade:g, sggYoy:r.sggYoy, sggType:r.sggType, n:0, tot:0, by:{}, rows:[]});
+    }
+    const a = dong.get(k); a.n++; a.tot += r.expo; a.by[r.src] = (a.by[r.src]||0) + r.expo; a.rows.push(r);
+  }
+  for(const a of dong.values()){ a.gap = a.d.yoy!=null && a.sggYoy!=null ? a.d.yoy - a.sggYoy : null; a.hidden = a.grade>=1 && a.sggYoy!=null && a.sggYoy >= 0; /* 시군구 KB 지수는 보합·상승인데 동은 하락 */ a.share = agg.all ? a.tot/agg.all : 0; }
+  const dongDown = new Map();
+  for(const a of dong.values()) if(a.grade >= 1) dongDown.set(a.cd, (dongDown.get(a.cd)||0) + a.tot);
   for(const a of agg.g.values()){
     const why = [];
-    const watch = (a.yoy!=null && a.yoy <= st.ewsWatchYoy/100) || a.streak >= st.ewsStreak;
+    const dsh = a.tot ? (dongDown.get(a.k)||0) / a.tot : 0;
+    const dongWatch = dsh > 0 && dsh >= st.dongPropagate/100;
+    const watch = (a.yoy!=null && a.yoy <= st.ewsWatchYoy/100) || a.streak >= st.ewsStreak || dongWatch;
+    if(dongWatch) why.push(`하락 동 익스포저 ${fmtPct(dsh,0)}`);
     if(a.yoy!=null && a.yoy <= st.ewsWatchYoy/100) why.push(`지수 전년대비 ${fmtChg(a.yoy)}`);
     if(a.streak >= st.ewsStreak) why.push(`${a.streak}개월 연속 하락`);
     const prevHi = cagg?.g.get(a.k)?.hiLtv;
@@ -887,7 +1116,7 @@ function derive(){
     a.prev = cagg?.g.get(a.k) || null;
   }
   rows.forEach(r => { r.ews = agg.g.get(r.sggCd)?.ews ?? 0; });
-  APP.D = {cur, cmp, rows, agg, cagg, midRes, mid};
+  APP.D = {cur, cmp, rows, agg, cagg, midRes, mid, dong};
 }
 
 /* =====================================================================
@@ -903,8 +1132,7 @@ function rebuildAll(){
 async function addWorkbookRaw(raw, meta, persist){
   const snap = processSnapshot(raw, meta, APP.dict);
   if(!snap.rows.length){ toast(`${meta.file}: 인식된 데이터 행이 없습니다. 3행 헤더(한글명 줄바꿈 영문코드) 양식인지 확인하세요.`, 5000); return null; }
-  const prev = APP.snaps[snap.ym];
-  if(prev?.sample) for(const k of Object.keys(APP.snaps)) if(APP.snaps[k].sample) delete APP.snaps[k];
+  for(const k of Object.keys(APP.snaps)) if(APP.snaps[k].sample) delete APP.snaps[k];   // 실데이터와 가상 샘플을 섞지 않음
   APP.snaps[snap.ym] = snap;
   if(persist) await DB.set("snap:"+snap.ym, {ym:snap.ym, file:meta.file, loadedAt:meta.loadedAt, raw});
   return snap;
@@ -931,8 +1159,10 @@ async function loadFiles(files){
 }
 function loadSample(){
   if(!SAMPLE) return;
+  loadSampleAddr();
+  if(!PXS.idx.length && !PXS.dong.length && SAMPLE._px){ PXS.dong = expandSample({d:SAMPLE._px.dong}).d; PXS.sample = true; }
   for(const [ym, s] of Object.entries(SAMPLE)){
-    if(APP.snaps[ym] && !APP.snaps[ym].sample) continue;
+    if(ym.startsWith("_") || APP.snaps[ym] && !APP.snaps[ym].sample) continue;
     APP.snaps[ym] = processSnapshot(expandSample(s), {ym, file:`샘플_가상_${ym}.xlsx`, loadedAt:"내장 샘플", sample:true}, APP.dict);
   }
 }
@@ -960,7 +1190,7 @@ function refresh(){
 }
 function renderView(){
   const v = APP.view;
-  ({map:()=>MAP.show(), conc:renderConc, stress:renderStress, ews:renderEws, qa:renderQa, data:renderData, guide:renderGuide})[v]?.();
+  ({map:()=>MAP.show(), conc:renderConc, stress:renderStress, ews:renderEws, dong:renderDong, qa:renderQa, data:renderData, guide:renderGuide})[v]?.();
 }
 function go(v){
   APP.view = v;
@@ -1008,7 +1238,7 @@ const MAP = {
     this.boundary.setStyle(f=>this.bStyle(f));
   },
   bStyle(f){
-    const cd = f.properties.c, a = APP.D?.agg.g.get(cd);
+    const cd = canonSgg(f.properties.c)[0], a = APP.D?.agg.g.get(cd);
     const tiles = !!this.tile;
     let fill = css("--surface"), op = tiles ? 0 : 1;
     if(this.mode==="region" && a){
@@ -1157,7 +1387,10 @@ const MAP = {
       ${r.src==="주택담보대출"?`<dt>건전성</dt><dd>${esc(r.qlty)}${r.dlq?` (연체 ${r.dlq}일)`:""}</dd>`:""}
       ${r.src==="투자부동산"?`<dt>평가손익</dt><dd class="${chgCls(r.gain)}">${fmtDelta(r.gain)}</dd>`:""}
       ${r.mat?`<dt>만기</dt><dd>${esc(r.mat)}</dd>`:""}
-      <dt>${esc(r.sgg)} 지수</dt><dd class="${chgCls(r.yoy)}">전년 ${fmtChg(r.yoy)} · 전월 ${fmtChg(r.mom)}${r.idxLevel==="시도 대체"?" <span class='muted'>(시도 대체)</span>":""}</dd>
+      <dt>반영 지수</dt><dd class="${chgCls(r.yoy)}">전년 ${fmtChg(r.yoy)} · 전월 ${fmtChg(r.mom)} <span class="muted">${r.idxLevel==="동 프록시"?"동 프록시 가중":r.idxLevel==="시도 대체"?"시도 대체":"시군구"}</span></dd>
+      <dt>${esc(r.sgg)} KB ${esc(r.sggType)}</dt><dd class="${chgCls(r.sggYoy)}">전년 ${fmtChg(r.sggYoy)}</dd>
+      ${r.dong?`<dt>${esc(r.emd)} 동 프록시</dt><dd class="${chgCls(r.dong.yoy)}">전년 ${fmtChg(r.dong.yoy)} <span class="muted">표본 ${r.dong.n} · ${r.dong.cred?`가중 ${(r.dong.w*100).toFixed(0)}%`:"표본 부족"}</span></dd>`:""}
+      ${r.dong && r.area && /㎡/.test(r.dong.unit||"") ? `<dt>동 평균가 × 면적</dt><dd>${fmtWon(r.dong.now*r.area)} <span class="muted">평가 대비 ${fmtChg(r.appr ? r.dong.now*r.area/r.appr-1 : null)}</span></dd>` : ""}
       <dt>조기경보</dt><dd>${ewsTag(r.ews)}</dd></dl>
       ${r.geo!=="건별"?`<div class="w">⚠ 좌표 미입력 — ${esc(r.geo)}에 표시</div>`:""}
       ${r.bjdHow&&r.bjdHow!=="원천"?`<div class="w">지역 분류: ${esc(r.bjdHow)}</div>`:""}</div>`;
@@ -1186,7 +1419,7 @@ const MAP = {
       g.forEach(a => {
         if(!a.nll) return;
         const full = APP.D.agg.g.get(a.cd);
-        const c = L.circleMarker([a.lat, a.lng], {radius: 6 + 26*Math.sqrt(a.tot/max), color:css("--text"), weight:1.2, fillColor:css("--surface"), fillOpacity:.55});
+        const c = L.circleMarker([a.lat, a.lng], {radius: 6 + 26*Math.sqrt(a.tot/max), color:css("--text"), weight:1.2, fillColor: fine ? divColor(a.yoy) : css("--surface"), fillOpacity: fine ? .85 : .55});
         c.bindTooltip(`<b>${esc(a.name)}</b><br>합계 ${fmtWon(a.tot)} · ${a.n}건<br>` + SRC.filter(s=>a.by[s.k]).map(s=>`${s.short} ${fmtWon(a.by[s.k])}`).join(" · ") + `<br>지수 전년대비 ${fmtChg(full?.yoy)} · ${EWS[full?.ews??0].name}`, {direction:"top", sticky:true});
         c.on("click", ()=> map.setView(c.getLatLng(), Math.max(map.getZoom()+2, 12)));
         this.regionLayer.addLayer(c);
@@ -1200,7 +1433,7 @@ const MAP = {
     if(this.mode==="pin"){
       el.innerHTML = `<div class="ttl">원천구분</div><div class="lgd" style="flex-direction:column;gap:3px">` + SRC.map(s=>`<span class="k"><i style="background:var(${s.c});border-radius:50%"></i>${s.k}</span>`).join("") + `<span class="k"><i style="border:2px dashed var(--text);border-radius:50%"></i>좌표 미입력(대표점)</span></div>`;
     } else if(this.metric==="yoy"){
-      el.innerHTML = `<div class="ttl">원 = 익스포저 합계${this.map.getZoom()>=12?"(읍면동)":""} · 색 = 시군구 가격지수 전년대비</div><div class="ramp">${[-1,-.5,0,.5,1].map(t=>`<span style="flex:1;background:${divColor(t*.05)}"></span>`).join("")}</div><div><span>▼5% 이상</span><span>보합</span><span>▲5% 이상</span></div>`;
+      el.innerHTML = `<div class="ttl">${this.map.getZoom()>=12?"원 = 읍면동 익스포저 · 원 색 = 동 지수(프록시 반영) 전년대비":"원 = 익스포저 합계 · 색 = 시군구 KB 지수 전년대비 (확대하면 동 단위)"}</div><div class="ramp">${[-1,-.5,0,.5,1].map(t=>`<span style="flex:1;background:${divColor(t*.05)}"></span>`).join("")}</div><div><span>▼5% 이상</span><span>보합</span><span>▲5% 이상</span></div>`;
     } else if(this.metric==="ews"){
       el.innerHTML = `<div class="ttl">색 = 조기경보 등급</div><div class="lgd">${EWS.map(e=>ewsTag(e.g)).join("")}</div>`;
     } else {
@@ -1360,6 +1593,106 @@ function renderEws(){
 }
 
 /* =====================================================================
+   11-2. 동 가격 프록시
+   ===================================================================== */
+const DGV = {f:"", type:"", sort:"tot", sel:null};
+function renderDong(){
+  const D = APP.D; if(!D) return emptyPage();
+  const S = APP.set, all = [...D.dong.values()];
+  const types = [...new Set(all.map(a=>a.type))].sort();
+  $("#dgType").innerHTML = `<option value="">전체 유형</option>` + types.map(t=>`<option ${DGV.type===t?"selected":""}>${esc(t)}</option>`).join("");
+  $("#dgFilter").value = DGV.f;
+  $("#dgFilter").onchange = e => { DGV.f = e.target.value; renderDong(); };
+  $("#dgType").onchange = e => { DGV.type = e.target.value; renderDong(); };
+  const coll = D.rows.filter(r => r.sggCd && r.src!=="투자부동산");
+  const used = coll.filter(r=>r.dong?.cred), weak = coll.filter(r=>r.dong && !r.dong.cred), none = coll.filter(r=>!r.dong);
+  const hidden = all.filter(a=>a.hidden), down = all.filter(a=>a.grade>=1);
+  const cexp = sum(coll, r=>r.expo);
+  const DG = D.cur.dongPx;
+  $("#dgTiles").innerHTML = `
+    <div class="tile"><div class="l">동 지수 반영 담보</div><div class="v">${used.length}건</div><div class="s">담보 ${coll.length}건 중 · 익스포저 ${fmtPct(cexp?sum(used,r=>r.expo)/cexp:null)}</div></div>
+    <div class="tile"><div class="l">시군구 지수 사용</div><div class="v">${weak.length + none.length}건</div><div class="s">표본 부족 ${weak.length} · 프록시 없음 ${none.length}</div></div>
+    <div class="tile"><div class="l">동 경보 (관찰 이상)</div><div class="v">${down.length}곳</div><div class="s">익스포저 ${fmtWon(sum(down,a=>a.tot))}</div></div>
+    <div class="tile"><div class="l">숨은 하락 동</div><div class="v">${hidden.length}곳</div><div class="s">시군구 KB 지수로는 안 보임 · ${fmtWon(sum(hidden,a=>a.tot))}</div></div>
+    <div class="tile"><div class="l">프록시 최신월</div><div class="v">${ymLabel(DG?.latest)}</div><div class="s">${esc((DG?.srcs||[]).join(", ")||"자료 없음")}${PXS.sample&&D.cur.sample?" · 가상":""}</div></div>`;
+  $("#dgNote").innerHTML = S.idxMode!=="dong" ? `설정의 지수 기준이 <b>시군구 KB 지수만</b>으로 되어 있어 동 프록시를 반영하지 않습니다.` :
+    !DG?.m.size ? `동 가격 프록시 자료가 없습니다. <b>데이터·내보내기 → 가격지표 월별 업데이트</b>에서 동 가격 프록시 파일을 올리세요.` :
+    `반영 방식: 동 평균가 ${S.pxWindow}개월 이동평균으로 지수화 → 최근 ${S.pxWindow}개월 표본 합 n이 ${S.pxMinN} 이상이면 반영 지수 = w × 동 + (1 − w) × 시군구 KB, w = n ÷ (n + ${S.pxK}). 동 등급은 동 지수 전년대비로만 매깁니다(관찰 ${S.ewsWatchYoy}% 이하 · 경계 ${S.ewsAlertYoy}% 이하, 연속하락은 평균가 잡음이 커서 참고만). 숨은 하락은 시군구 KB 지수가 보합·상승인데 동은 관찰 이상인 곳이며, 시군구 익스포저의 ${S.dongPropagate}% 이상이 하락 동에 있으면 그 시군구를 조기경보 '관찰'로 올립니다.`;
+  let list = all.filter(a => (!DGV.type || a.type===DGV.type) && (DGV.f==="hidden" ? a.hidden : DGV.f==="down" ? a.grade>=1 : DGV.f==="weak" ? a.grade==null : true));
+  const val = (a,k) => ({grade:a.grade??-1, name:a.name, type:a.type, tot:a.tot, n:a.n, pn:a.d.n, w:a.d.cred?a.d.w:-1, dy:a.d.yoy, sy:a.sggYoy, gap:a.gap, by:blend(a.d.cred?a.d.w:0, a.d.yoy, a.sggYoy), st:a.d.streak})[k];
+  const k = DGV.sort;
+  list.sort((a,b)=> k==="name"||k==="type" ? String(val(a,k)).localeCompare(val(b,k)) : (val(b,k)??-9)-(val(a,k)??-9));
+  const C = [["grade","동 등급","l"],["name","지역","l"],["type","유형","l"],["tot","익스포저"],["n","건수"],["pn",`표본(${S.pxWindow}개월)`],["w","가중 w"],["dy","동 YoY"],["sy","시군구 KB YoY"],["gap","차이"],["by","반영 YoY"],["st","연속하락"]];
+  $("#dgTH").innerHTML = "<tr>" + C.map(([c,l,cl])=>`<th data-k="${c}" class="${cl||""}">${l}${k===c?" ▾":""}</th>`).join("") + "</tr>";
+  $("#dgTH").querySelectorAll("th").forEach(th => th.onclick = () => { DGV.sort = th.dataset.k; renderDong(); });
+  $("#dgTB").innerHTML = list.map((a,i)=>`<tr class="click" data-i="${i}"><td class="l">${a.grade==null?'<span class="lv i">표본 부족</span>':ewsTag(a.grade)}${a.hidden?' <span class="pill crit">숨은 하락</span>':""}</td><td class="l">${esc(a.name)}</td><td class="l">${esc(a.type)}</td><td>${fmtWon(a.tot)}</td><td>${a.n}</td><td>${a.d.n}</td><td>${a.d.cred?(a.d.w*100).toFixed(0)+"%":"-"}</td><td class="${chgCls(a.d.yoy)}">${fmtChg(a.d.yoy)}</td><td class="${chgCls(a.sggYoy)}">${fmtChg(a.sggYoy)}</td><td class="${chgCls(a.gap)}">${fmtPp(a.gap)}</td><td class="${chgCls(val(a,"by"))}"><b>${fmtChg(val(a,"by"))}</b></td><td>${a.d.streak}개월</td></tr>`).join("") || `<tr><td colspan="12" class="empty">조건에 맞는 동이 없습니다.</td></tr>`;
+  $$("#dgTB tr[data-i]").forEach(tr => tr.onclick = () => { DGV.sel = list[+tr.dataset.i].k; drawDongDetail(); });
+  if(DGV.sel && D.dong.has(DGV.sel)) drawDongDetail(); else $("#dgDetail").hidden = true;
+  drawDongMatrix();
+}
+function drawDongMatrix(){
+  const D = APP.D, S = APP.set, DG = D.cur.dongPx, base = D.cur.ym, w = Math.max(1, Math.round(S.pxWindow));
+  const T = ["아파트","연립·다세대","오피스텔","단독·다가구"];
+  const g = new Map();
+  for(const r of D.rows){
+    if(!r.sggCd || !r.emd || r.src==="투자부동산") continue;
+    const k = `${r.sggCd}|${emdBase(r.emd)}`;
+    if(!g.has(k)) g.set(k, {k, name:`${SIDO_SHORT[r.sido]||""} ${r.sgg} ${r.emd}`, bjd:r.bjd, sido:r.sido, sgg:r.sgg, cd:r.sggCd, tot:0, n:0, types:new Set(), yw:0, we:0, sggYoy:r.sggYoy});
+    const a = g.get(k); a.tot += r.expo; a.n++; a.types.add(canonType(r.type)); if(!a.bjd && r.bjd) a.bjd = r.bjd;
+    if(r.yoy!=null){ a.yw += r.yoy*r.expo; a.we += r.expo; }
+  }
+  const cell = (a, t) => {
+    if(!DG?.m.size) return null;
+    const s = (a.bjd && DG.m.get(`${a.bjd}#${t}`)) || DG.m.get(`${a.k}#${t}`);
+    if(!s) return null;
+    const st = dongStats({s, type:t, key:a.k}, base, null, w);
+    return st;
+  };
+  let list = [...g.values()].map(a => ({...a, c:T.map(t => cell(a,t))}));
+  list.forEach(a => { a.gap = [...a.types].filter(t => T.includes(t) && !a.c[T.indexOf(t)]); });
+  const gapAll = list.filter(a => a.gap.length);
+  if($("#dgGapOnly").checked) list = gapAll;
+  list.sort((a,b)=>b.tot-a.tot);
+  $("#dgGapOnly").onchange = () => drawDongMatrix();
+  $("#dgMxNote").textContent = `담보가 있는 동 ${g.size}곳 · 담보 유형의 가격자료가 빠진 동 ${gapAll.length}곳`;
+  const fmtP = st => { if(!st) return `<span class="muted">—</span>`; const u = /㎡/.test(st.unit||"") ? `${fmtN(st.now/1e4)}만/㎡` : fmtWon(st.now); return `${u} <span class="${chgCls(st.yoy)}">${fmtChg(st.yoy)}</span> <span class="muted">n${st.n}${st.n < S.pxMinN ? " 부족" : ""}</span>`; };
+  $("#dgMx").innerHTML = `<thead><tr><th class="l">동</th><th>익스포저</th><th>건수</th>${T.map(t=>`<th class="l">${t}</th>`).join("")}<th>시군구 KB YoY</th><th>반영 YoY</th><th class="l">담보 유형 중 자료 없음</th></tr></thead><tbody>` +
+    list.slice(0,300).map(a => `<tr><td class="l">${esc(a.name)}</td><td>${fmtWon(a.tot)}</td><td>${a.n}</td>${a.c.map((st,i)=>`<td class="l" style="${a.types.has(T[i])?"":"opacity:.55"}">${fmtP(st)}</td>`).join("")}<td class="${chgCls(a.sggYoy)}">${fmtChg(a.sggYoy)}</td><td class="${chgCls(a.we?a.yw/a.we:null)}"><b>${fmtChg(a.we?a.yw/a.we:null)}</b></td><td class="l">${a.gap.length?`<span class="lv w">${esc(a.gap.join(", "))}</span>`:""}</td></tr>`).join("") + `</tbody>`;
+}
+
+function drawDongDetail(){
+  const D = APP.D, a = D.dong.get(DGV.sel), el = $("#dgDetail"), S = APP.set; if(!a) return;
+  const f = dongSeries(D.cur.dongPx, a.rows[0]), sf = seriesFor(D.cur.prices, a.cd, a.type);
+  const W = 640, H = 170, pad = 34, months = []; for(let k=23;k>=0;k--) months.push(ymAdd(D.cur.ym,-k));
+  const dS = months.map(m => f ? smoothAt(f.s, m, Math.max(1,Math.round(S.pxWindow)))?.v ?? null : null);
+  const sS = months.map(m => sf ? sf.s.get(m) ?? null : null);
+  const norm = arr => { const b = arr.find(v=>v!=null); return arr.map(v => v==null||b==null ? null : v/b*100); };
+  const dn = norm(dS), sn = norm(sS), vals = [...dn, ...sn].filter(v=>v!=null);
+  let chart = `<div class="muted">시계열 없음</div>`;
+  if(vals.length > 2){
+    const lo = Math.min(...vals), hi = Math.max(...vals), rg = (hi-lo)||1;
+    const X = i => pad + i*(W-pad-10)/(months.length-1), Y = v => 10 + (H-34)*(1-(v-lo)/rg);
+    const line = arr => arr.map((v,i)=>v==null?null:`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).filter(Boolean).join(" ");
+    chart = `<svg class="spark" style="height:190px" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(a.name)} 동 지수와 시군구 지수 비교">
+      ${[lo,(lo+hi)/2,hi].map(v=>`<line x1="${pad}" x2="${W-10}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="${pad-4}" y="${Y(v)+4}" text-anchor="end" font-size="10" fill="var(--text-3)">${v.toFixed(1)}</text>`).join("")}
+      <polyline points="${line(sn)}" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-dasharray="5 4"/>
+      <polyline points="${line(dn)}" fill="none" stroke="var(--accent)" stroke-width="2.4"/>
+      <text x="${pad}" y="${H-4}" font-size="10" fill="var(--text-3)">${ymLabel(months[0])} = 100</text><text x="${W-10}" y="${H-4}" font-size="10" text-anchor="end" fill="var(--text-3)">${ymLabel(last(months))}</text></svg>
+      <div class="lgd"><span class="k"><i style="background:var(--accent)"></i>${esc(a.emd)} ${esc(a.type)} 동 평균가(${S.pxWindow}개월 이동평균)</span><span class="k"><i style="background:var(--text-3)"></i>${esc(a.sgg)} KB ${esc(sf?.type||"")} 지수</span></div>`;
+  }
+  el.hidden = false;
+  el.innerHTML = `<h3>${esc(a.name)} · ${esc(a.type)} <small><button class="btn sm" id="dgMap">지도에서 보기</button> <button class="btn sm" id="dgClose">닫기</button></small></h3>
+    <div class="grid g2"><div>${chart}</div>
+    <div><div class="kv" style="margin-bottom:8px"><dt>동 등급</dt><dd>${a.grade==null?"표본 부족 → 시군구 지수 사용":ewsTag(a.grade)}${a.hidden?" · 시군구 KB 지수로는 안 보이는 하락":""}</dd>
+      <dt>동 / 시군구</dt><dd>전년 <span class="${chgCls(a.d.yoy)}">${fmtChg(a.d.yoy)}</span> / <span class="${chgCls(a.sggYoy)}">${fmtChg(a.sggYoy)}</span> · 표본 ${a.d.n} · 가중 ${a.d.cred?(a.d.w*100).toFixed(0)+"%":"0%"}</dd>
+      <dt>최근 평균가</dt><dd>${fmtN(a.d.now)} ${esc(a.d.unit||"")}</dd></div>
+      <div class="tw" style="max-height:220px;overflow:auto"><table class="t"><thead><tr><th class="l">물건</th><th>원천</th><th>익스포저</th><th>평가시점 LTV</th><th>조정 LTV</th></tr></thead><tbody>${a.rows.sort((x,y)=>y.expo-x.expo).map(r=>`<tr><td class="l">${esc(r.name||r.id)}</td><td>${SRC_BY[r.src].short}</td><td>${fmtWon(r.expo)}</td><td>${fmtPct(r.ltv)}</td><td>${fmtPct(r.adjLtv)}</td></tr>`).join("")}</tbody></table></div></div></div>`;
+  $("#dgClose").onclick = () => { DGV.sel = null; el.hidden = true; };
+  $("#dgMap").onclick = () => { go("map"); MAP.setRegion(a.sido, a.sgg); };
+  el.scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+
+/* =====================================================================
    12. 점검·주소정제
    ===================================================================== */
 const QA = {lv:"", cat:"", q:""};
@@ -1367,7 +1700,7 @@ function renderQa(){
   const D = APP.D; if(!D) return emptyPage("#v-qa");
   const cur = D.cur, rows = cur.rows, n = rows.length, I = cur.issues;
   const c = f => rows.filter(f).length;
-  const bjd10 = c(r=>r.bjdHow==="원천"), cls = c(r=>!!r.sggCd), exact = c(r=>r.geo==="건별"), rep = c(r=>r.geo && r.geo.includes("대표점"));
+  const bjd10 = c(r=>/^\d{10}$/.test(r.bjd||"")), cls = c(r=>!!r.sggCd), exact = c(r=>r.geo==="건별"), bldg = c(r=>r.geo==="건별"||r.geo==="건물좌표(사전)"), rep = c(r=>r.geo && r.geo.includes("대표점"));
   const idxOk = c(r=>r.sggCd && r.idxLevel && r.idxLevel!=="없음"), idxSub = c(r=>r.idxLevel==="시도 대체");
   const reqMiss = I.filter(i=>i.cat==="필수항목").length, allocErr = I.filter(i=>i.cat==="배분비율").length;
   const rc = APP.recon[cur.ym], rcDiff = rc ? reconDiff(cur, rc) : null;
@@ -1378,15 +1711,15 @@ function renderQa(){
     gate(allocErr===0, "G1 · 배분비율 합 100%", `${allocErr}건 오류`, "주담대 관리번호별"),
     gate(rcDiff==null?null:rcDiff.every(d=>d.n===0&&d.a===0), "G1 · 원천 대사 차이", rcDiff?rcDiff.map(d=>`${SRC_BY[d.k].short} ${d.a===0?"0원":fmtDelta(d.a)}`).join(" · "):"—", "데이터 화면에서 원천 합계 입력"),
     gate(bjd10/n>=.98, "G2 · 법정동코드 10자리 부여율", fmtPct(bjd10/n), `목표 98% · 시군구 분류 ${fmtPct(cls/n)}`),
-    gate(exact/n>=.95, "G2 · 건별 좌표 부여율", fmtPct(exact/n), `목표 95% · 대표점 표시 ${rep}건`),
+    gate(bldg/n>=.95, "G2 · 건물 단위 좌표 부여율", fmtPct(bldg/n), `목표 95% · 대표점 표시 ${rep}건`),
     gate(idxOk===cls, "G3 · 가격지수 매핑률", fmtPct(cls?idxOk/cls:null), `목표 100%(대체 포함) · 시도 대체 ${idxSub}건`),
     gate(offline?true:null, "G5 · 외부 통신", offline?"0건":BUILD.offline?"배경지도 사용 중":"웹 버전", offline?"내부망 파일 + 내장 경계지도":"내부망 파일에서 '경계지도(내장)' 선택 시 0건"),
   ].join("");
   const by = h => c(r=>r.bjdHow===h);
   $("#qGeoNote").textContent = `전체 ${n}행`;
   $("#qGeoTiles").innerHTML = [
-    ["원천 법정동코드", by("원천")], ["주소 규칙 정제", by("주소정제")], ["매핑 사전 적용", by("매핑사전")], ["미매칭", c(r=>!r.sggCd)],
-    ["좌표 · 건별", exact], ["좌표 · 읍면동 대표점", c(r=>r.geo==="읍면동 대표점")], ["좌표 · 시군구 대표점", c(r=>r.geo==="시군구 대표점")],
+    ["원천 법정동코드", by("원천")], ["도로명사전 · 건물", by("도로명사전")], ["도로명사전 · 도로", by("도로명사전(도로)")], ["법정동 이름", by("법정동명")], ["매핑 사전", by("매핑사전")], ["시군구까지만", by("주소정제")], ["미매칭", c(r=>!r.sggCd)],
+    ["좌표 · 원천", exact], ["좌표 · 사전 건물", c(r=>r.geo==="건물좌표(사전)")], ["좌표 · 읍면동 대표점", c(r=>r.geo==="읍면동 대표점")], ["좌표 · 시군구 대표점", c(r=>r.geo==="시군구 대표점")],
   ].map(([l,v])=>`<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${fmtPct(v/n)}</div></div>`).join("");
   // 미확정 주소
   const un = rows.filter(r => !r.sggCd || r.bjdHow==="주소정제");
@@ -1396,11 +1729,11 @@ function renderQa(){
       <td class="l"><select class="qSel" aria-label="시군구 후보">${curOpt}${sg.filter(x=>x.cd!==r.sggCd).map(x=>`<option value="${x.cd}">${esc(x.sido+" "+x.sgg)} · ${(x.sc*100).toFixed(0)}</option>`).join("")}<option value="__all">전체 목록에서 고르기…</option></select></td>
       <td class="l"><input type="text" class="qEmd" value="${esc(r.emd||"")}" placeholder="예: 잠실동" style="width:100px;height:28px;border:1px solid var(--line);border-radius:5px;background:var(--surface);padding:0 6px" aria-label="읍면동"></td>
       <td><button class="btn sm pri qOk">확정</button></td></tr>`; }).join("") || `<tr><td colspan="7" class="empty">확인할 주소가 없습니다.</td></tr>`) + `</tbody>`;
-  $$("#qUnT .qSel").forEach(sel => sel.onchange = () => { if(sel.value==="__all"){ sel.innerHTML = SGG_LIST.slice().sort((a,b)=>(a.sido+a.sgg).localeCompare(b.sido+b.sgg)).map(x=>`<option value="${x.cd}">${esc(x.sido+" "+x.sgg)}</option>`).join(""); } });
+  $$("#qUnT .qSel").forEach(sel => sel.onchange = () => { if(sel.value==="__all"){ sel.innerHTML = SGG_LIST.filter(x=>!x.legacy).sort((a,b)=>(a.sido+a.sgg).localeCompare(b.sido+b.sgg)).map(x=>`<option value="${x.cd}">${esc(x.sido+" "+x.sgg)}</option>`).join(""); } });
   $$("#qUnT .qOk").forEach(b => b.onclick = async () => {
     const tr = b.closest("tr"), r = un[+tr.dataset.i], cd = tr.querySelector(".qSel").value, emd = tr.querySelector(".qEmd").value.trim();
     if(!sggInfo(cd)) return toast("시군구를 고르세요.");
-    APP.dict[normAddrKey(r.addr)] = {cd, emd, addr:r.addr, by:"담당자 확인", at:new Date().toISOString().slice(0,10)};
+    APP.dict[normAddrKey(r.addr)] = {cd, emd, bjd: bjdByName(cd, emd)?.bjd || "", addr:r.addr, by:"담당자 확인", at:new Date().toISOString().slice(0,10)};
     await DB.set("dict", APP.dict); LS.set("reh.dict", APP.dict);
     rebuildAll(); refresh(); toast(`매핑 사전에 등록했습니다: ${sggInfo(cd).sido} ${sggInfo(cd).sgg}`);
   });
@@ -1434,7 +1767,284 @@ function reconDiff(snap, rc){
 /* =====================================================================
    13. 데이터·내보내기·설정
    ===================================================================== */
+/* ---------- 도로명주소 사전 가져오기: 주소DB(txt) 스트리밍 · 열 역할 추정 · UTM-K → 위경도 ---------- */
+function utmkToWgs(x, y){
+  const a=6378137, f=1/298.257222101, e2=2*f-f*f, ep2=e2/(1-e2), k0=0.9996, lat0=38*Math.PI/180, lon0=127.5*Math.PI/180, FE=1e6, FN=2e6;
+  const M = p => a*((1-e2/4-3*e2**2/64-5*e2**3/256)*p-(3*e2/8+3*e2**2/32+45*e2**3/1024)*Math.sin(2*p)+(15*e2**2/256+45*e2**3/1024)*Math.sin(4*p)-(35*e2**3/3072)*Math.sin(6*p));
+  const mu = (M(lat0)+(y-FN)/k0)/(a*(1-e2/4-3*e2**2/64-5*e2**3/256)), e1 = (1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const p1 = mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1**2/16-55*e1**4/32)*Math.sin(4*mu)+(151*e1**3/96)*Math.sin(6*mu)+(1097*e1**4/512)*Math.sin(8*mu);
+  const c1 = ep2*Math.cos(p1)**2, t1 = Math.tan(p1)**2, n1 = a/Math.sqrt(1-e2*Math.sin(p1)**2), r1 = a*(1-e2)/(1-e2*Math.sin(p1)**2)**1.5, d = (x-FE)/(n1*k0);
+  const lat = p1-(n1*Math.tan(p1)/r1)*(d*d/2-(5+3*t1+10*c1-4*c1*c1-9*ep2)*d**4/24+(61+90*t1+298*c1+45*t1*t1-252*ep2-3*c1*c1)*d**6/720);
+  const lng = lon0+(d-(1+2*t1+c1)*d**3/6+(5-2*c1+28*t1-3*c1*c1+8*ep2+24*t1*t1)*d**5/120)/Math.cos(p1);
+  return [lat*180/Math.PI, lng*180/Math.PI];
+}
+const AD_ROLES = [["","—"],["bjd","법정동코드"],["sgg","시군구코드"],["road","도로명"],["main","건물본번"],["sub","건물부번"],["under","지하여부"],["emd","법정동명"],["x","X좌표(UTM-K)"],["y","Y좌표(UTM-K)"],["lat","위도"],["lng","경도"]];
+let ADP = null;
+async function readAddrFiles(files){
+  const f = files[0];
+  if(/\.zip$/i.test(f.name)) return toast("압축 파일은 풀어서 안의 txt 파일을 올려 주세요.", 5000);
+  const head = await f.slice(0, 512*1024).arrayBuffer();
+  let enc = "utf-8", txt = new TextDecoder("utf-8").decode(head);
+  if(txt.includes("\uFFFD")){ enc = "euc-kr"; txt = new TextDecoder("euc-kr").decode(head); }
+  const lines = txt.split(/\r?\n/).slice(0,-1).filter(Boolean).slice(0,3000);
+  if(!lines.length) return toast("파일에서 줄을 읽지 못했습니다.");
+  const delim = ["|","\t",","].sort((a,b)=>lines[0].split(b).length - lines[0].split(a).length)[0];
+  const rows = lines.map(l => l.split(delim));
+  const hasHeader = rows[0].some(c => /코드|도로명|본번|부번|좌표|법정동|시군구/.test(c));
+  const data = hasHeader ? rows.slice(1) : rows, ncol = Math.max(...rows.map(r=>r.length));
+  const roles = Array(ncol).fill("");
+  const set = (j, role) => { if(!roles.includes(role)) roles[j] = role; };
+  if(hasHeader) rows[0].forEach((h,j) => { const t = String(h).replace(/\s/g,"");
+    const r = /법정동코드/.test(t)?"bjd":/시군구코드/.test(t)?"sgg":/^도로명$/.test(t)?"road":/본번/.test(t)?"main":/부번/.test(t)?"sub":/지하/.test(t)?"under":/(읍면동명|법정동명)/.test(t)?"emd":/^X|X좌표/.test(t)?"x":/^Y|Y좌표/.test(t)?"y":/위도/.test(t)?"lat":/경도/.test(t)?"lng":""; if(r) set(j, r); });
+  for(let j=0; j<ncol; j++){
+    if(roles[j]) continue;
+    const v = data.map(r => String(r[j]??"").trim()).filter(Boolean), fr = pred => v.length ? v.filter(pred).length / v.length : 0;
+    if(fr(x => /^\d{10}$/.test(x) && +x.slice(0,2) >= 11) > .9) set(j,"bjd");
+    else if(fr(x => /^\d{5}$/.test(x) && canonSgg(x).length) > .9) set(j,"sgg");
+    else if(fr(x => /[가-힣]/.test(x) && /[가-힣0-9](로|길)$/.test(x) && !/^\d/.test(x)) > .7) set(j,"road");
+    else if(fr(x => /^[가-힣0-9·]+(동|가|읍|면|리)$/.test(x) && x.length <= 8) > .7) set(j,"emd");
+    else if(fr(x => +x > 6e5 && +x < 1.5e6) > .9) set(j,"x");
+    else if(fr(x => +x > 1.3e6 && +x < 2.3e6) > .9) set(j,"y");
+    else if(fr(x => /^\d+\.\d+$/.test(x) && +x > 33 && +x < 39) > .9) set(j,"lat");
+    else if(fr(x => /^\d+\.\d+$/.test(x) && +x > 124 && +x < 132) > .9) set(j,"lng");
+  }
+  // 정수 열: 0/1만 → 지하여부, 도로명 오른쪽의 값이 다양한 열 → 본번, 그다음 0이 많은 열 → 부번
+  const ints = []; for(let j=0;j<ncol;j++){ if(roles[j]) continue; const v = data.map(r=>String(r[j]??"").trim()).filter(Boolean); if(v.length && v.every(x=>/^\d{1,5}$/.test(x))) ints.push({j, uniq:new Set(v).size, zero:v.filter(x=>x==="0").length/v.length}); }
+  const roadJ = roles.indexOf("road");
+  const mainC = ints.find(c => c.uniq>2 && (roadJ<0 || c.j>roadJ));
+  if(mainC){
+    set(mainC.j,"main");
+    const subC = ints.find(c => c.j>mainC.j); if(subC) set(subC.j,"sub");                  // 본번 오른쪽 정수 열(대부분 0) → 부번
+    const undC = ints.filter(c => c.j<mainC.j && c.uniq<=2).pop(); if(undC) set(undC.j,"under");   // 본번 왼쪽 0/1 열 → 지하여부
+  }
+  ADP = {files:[...files], enc, delim, hasHeader, ncol, roles, sample:data.slice(0,6), crs: roles.includes("x")&&roles.includes("y") ? "utmk" : roles.includes("lat") ? "wgs" : "none"};
+  drawAddrPreview();
+}
+function drawAddrPreview(){
+  const el = $("#adPreview"); if(!ADP){ el.hidden = true; return; }
+  const need = ["bjd","road","main"].filter(r => !ADP.roles.includes(r));
+  el.hidden = false;
+  el.innerHTML = `<div class="note"><b>${esc(ADP.files.map(f=>f.name).join(", "))}</b> · ${ADP.enc==="euc-kr"?"CP949":"UTF-8"} · 구분자 '${ADP.delim==="\t"?"탭":esc(ADP.delim)}' · ${ADP.hasHeader?"머리글 있음":"머리글 없음"} — 각 열의 역할을 확인하세요. 법정동코드 · 도로명 · 건물본번은 필수, 좌표는 있으면 건물 위치로 씁니다.</div>
+    <div class="tw" style="margin-top:8px"><table class="t"><thead><tr>${ADP.roles.map((r,j)=>`<th class="l"><select class="adRole" data-j="${j}" aria-label="${j+1}열 역할">${AD_ROLES.map(([k,l])=>`<option value="${k}" ${r===k?"selected":""}>${l}</option>`).join("")}</select></th>`).join("")}</tr></thead>
+    <tbody>${ADP.sample.map(row=>`<tr>${ADP.roles.map((_,j)=>`<td class="l">${esc(row[j]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <div class="filters" style="margin-top:8px"><label for="adCrs" class="muted">좌표계</label><select id="adCrs"><option value="utmk" ${ADP.crs==="utmk"?"selected":""}>UTM-K (EPSG:5179)</option><option value="wgs" ${ADP.crs==="wgs"?"selected":""}>위경도 (WGS84)</option><option value="none" ${ADP.crs==="none"?"selected":""}>좌표 없음</option></select>
+    <button class="btn pri" id="adApply" ${need.length?"disabled":""}>사전에 반영</button><button class="btn" id="adCancel">취소</button>${need.length?`<span class="muted">지정 필요: ${need.map(r=>AD_ROLES.find(x=>x[0]===r)[1]).join(", ")}</span>`:""}</div>`;
+  $$(".adRole").forEach(sel => sel.onchange = () => { const j = +sel.dataset.j; ADP.roles = ADP.roles.map((r,i) => i===j ? sel.value : r===sel.value ? "" : r); drawAddrPreview(); });
+  $("#adCrs").onchange = e => { ADP.crs = e.target.value; };
+  $("#adCancel").onclick = () => { ADP = null; drawAddrPreview(); };
+  $("#adApply").onclick = applyAddr;
+}
+async function applyAddr(){
+  const P = ADP; if(!P) return;
+  const ix = k => P.roles.indexOf(k);
+  const J = {bjd:ix("bjd"), sgg:ix("sgg"), road:ix("road"), main:ix("main"), sub:ix("sub"), emd:ix("emd"), x:ix("x"), y:ix("y"), lat:ix("lat"), lng:ix("lng")};
+  $("#busy").hidden = false;
+  let total = 0, skip = 0;
+  const add = [], addFiles = [];
+  try{
+    for(const file of P.files){
+      const dec = new TextDecoder(P.enc), reader = file.stream().getReader();
+      let buf = "", first = true, n = 0;
+      const handle = line => {
+        if(!line) return; if(first){ first = false; if(P.hasHeader) return; }
+        const c = line.split(P.delim), g = j => j>=0 ? String(c[j]??"").trim() : "";
+        const bjd = g(J.bjd), road = g(J.road).replace(/\s/g,""), main = parseInt(g(J.main),10);
+        if(!/^\d{10}$/.test(bjd) || !road || !(main>=0)){ skip++; return; }
+        let lat = null, lng = null;
+        if(P.crs==="utmk"){ const x = parseFloat(g(J.x)), y = parseFloat(g(J.y)); if(x>0 && y>0) [lat, lng] = utmkToWgs(x, y); }
+        else if(P.crs==="wgs"){ lat = parseFloat(g(J.lat)); lng = parseFloat(g(J.lng)); if(!(lat>33 && lat<39)) lat = lng = null; }
+        add.push([g(J.sgg) || bjd.slice(0,5), road, main, parseInt(g(J.sub),10)||0, bjd, lat!=null?+lat.toFixed(6):null, lng!=null?+lng.toFixed(6):null, g(J.emd)]);
+        n++;
+      };
+      for(;;){
+        const {done, value} = await reader.read(); if(done) break;
+        const parts = (buf + dec.decode(value, {stream:true})).split("\n"); buf = parts.pop();
+        for(const l of parts) handle(l.replace(/\r$/,""));
+        $("#busy").textContent = `주소DB 읽는 중… ${fmtN(total + n)}건`; await new Promise(r => setTimeout(r));
+      }
+      buf += dec.decode(); handle(buf.replace(/\r$/,""));
+      total += n; addFiles.unshift({file:file.name, n, at:new Date().toISOString().slice(0,16).replace("T"," ")});
+    }
+    if(!add.length){ $("#busy").hidden = true; toast("읽힌 주소가 0건입니다. 열 역할(법정동코드 · 도로명 · 건물본번)을 다시 확인하세요. 기존 사전은 그대로 둡니다.", 6000); drawAddrPreview(); return; }
+    if(ADS.sample){ ADS.rows = []; ADS.files = []; ADS.sample = false; }
+    ADS.rows.push(...add); ADS.files.unshift(...addFiles);
+    adsIndex();
+    await DB.set("addr", {rows:ADS.rows, files:ADS.files});
+  }catch(e){ console.error(e); toast("주소DB를 읽는 중 오류: " + e.message, 6000); }
+  $("#busy").hidden = true; $("#busy").textContent = "불러오는 중…";
+  ADP = null; drawAddrPreview(); rebuildAll(); refresh();
+  toast(`주소DB ${fmtN(total)}건을 사전에 반영했습니다${skip?` (형식이 맞지 않는 ${fmtN(skip)}줄 제외)`:""}.`, 5000);
+}
+let adClearArm = false;
+function renderAddrStore(){
+  $("#bjVer").textContent = BJ.ver ? `${BJ.ver.slice(0,4)}.${BJ.ver.slice(4,6)}.${BJ.ver.slice(6)}` : "-";
+  $("#adNote").textContent = ADS.sample ? "지금은 내장 가상 사전 — 실제 주소DB를 반영하면 대체됩니다" : DB.db ? "이 브라우저 저장소(IndexedDB)에 보관" : "저장소를 쓸 수 없어 이번 화면에서만 유지";
+  const cities = new Set(ADS.rows.map(r => cityKey(canonSgg(r[0])[0]||r[0]))).size, withXY = ADS.rows.filter(r=>r[5]!=null).length;
+  $("#adCovT").innerHTML = `<thead><tr><th class="l">사전</th><th>건물 수</th><th>시·군·구(시 단위)</th><th>좌표 있는 건물</th><th class="l">반영 파일</th><th></th></tr></thead><tbody><tr><td class="l"><b>도로명주소 사전</b>${ADS.sample?' <span class="pill warn">가상</span>':""}</td><td>${fmtN(ADS.rows.length)}</td><td>${cities}</td><td>${fmtN(withXY)}</td><td class="l wrap">${esc(ADS.files.slice(0,4).map(f=>`${f.file}(${fmtN(f.n)})`).join(", "))}</td><td>${ADS.rows.length?`<button class="btn sm" id="adClr">${adClearArm?"한 번 더 누르면 삭제":"비우기"}</button>`:""}</td></tr></tbody>`;
+  $("#adClr") && ($("#adClr").onclick = async () => { if(!adClearArm){ adClearArm = true; return renderAddrStore(); } adClearArm = false; ADS.rows = []; ADS.files = []; ADS.sample = false; adsIndex(); await DB.set("addr", {rows:[], files:[]}); rebuildAll(); refresh(); toast("도로명주소 사전을 비웠습니다."); });
+}
+function loadSampleAddr(){
+  if(ADS.rows.length || !SAMPLE?._addr) return;
+  const rows = expandSample({a:SAMPLE._addr.rows}).a;
+  ADS.rows = rows.map(r => { const [lat,lng] = utmkToWgs(+r["X좌표"], +r["Y좌표"]); return [String(r["시군구코드"]), r["도로명"], +r["건물본번"], +r["건물부번"]||0, String(r["법정동코드"]), +lat.toFixed(6), +lng.toFixed(6), r["법정읍면동명"]||""]; });
+  ADS.files = [{file:"도로명주소사전_가상(내장)", n:rows.length, at:"내장 샘플"}]; ADS.sample = true; adsIndex();
+}
+
+/* ---------- 가격지표 월별 업데이트: 파일 해석 · 미리보기 · 저장소 반영 ---------- */
+const HDR_ALIAS = {"기준년월":"BASE_YM","기준월":"BASE_YM","년월":"BASE_YM","시군구코드":"SGG_CD","지역코드":"SGG_CD","주택유형":"IDX_TYPE","지수유형":"IDX_TYPE","매매가격지수":"IDX_VAL","가격지수":"IDX_VAL","지수":"IDX_VAL","지표출처":"IDX_SRC","법정동코드":"BJD_CD","시도":"SIDO","시군구":"SIGUNGU","읍면동":"EMD","법정동":"EMD","건물유형":"PX_TYPE","평균가격":"PX_AVG","평균가":"PX_AVG","㎡당평균가격":"PX_AVG","단위":"PX_UNIT","표본수":"PX_CNT","거래건수":"PX_CNT","단지수":"PX_CNT","출처":"PX_SRC"};
+const hdrCode = c => { if(c==null) return null; const parts = String(c).split("\n"), tail = parts[parts.length-1].trim(); if(/^[A-Z_]{4,}$/.test(tail)) return tail; return HDR_ALIAS[String(c).replace(/\s|\(.*?\)/g,"")] || null; };
+function ymFromCell(v){
+  if(v==null || v==="") return null;
+  if(v instanceof Date) return isNaN(v) ? null : ymOfIso(iso(v));
+  if(typeof v==="number"){
+    if(Number.isInteger(v) && v>=190001 && v<=210012 && v%100>=1 && v%100<=12) return String(v);
+    if(!Number.isInteger(v) && v>=1990 && v<2100){ const y=Math.floor(v), m=Math.round((v-y)*100); if(m>=1 && m<=12) return `${y}${String(m).padStart(2,"0")}`; }
+    if(Number.isInteger(v) && v>=25000 && v<80000) return ymOfIso(iso(v));
+    return null;
+  }
+  const t = String(v).trim();
+  let m = t.match(/^(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*월?\.?$/) || t.match(/^(\d{4})(\d{2})$/);
+  if(m && +m[2]>=1 && +m[2]<=12) return m[1] + String(+m[2]).padStart(2,"0");
+  m = t.match(/^(\d{2})\.(\d{1,2})$/); if(m && +m[2]<=12) return "20" + m[1] + String(+m[2]).padStart(2,"0");
+  return null;
+}
+const sidoCode = name => { const x = SGG_LIST.find(e => e.sido===name); return x ? x.cd.slice(0,2) + "000" : null; };
+function matchRegionLabel(parts){
+  let sido = null; const rest = [];
+  for(const p of parts) for(const t of String(p).split(/\s+/).filter(Boolean)){ const sd = sidoOf(t); if(sd && (!sido || sd===sido)) sido = sd; else rest.push(t); }
+  if(sido==="세종특별자치시") return "36110";
+  if(!rest.length) return sido ? sidoCode(sido) : null;
+  return parseAddr(`${sido||""} ${rest.join(" ")}`)?.cd || null;
+}
+function parseLong(aoa, kind){
+  const need = kind==="idx" ? "IDX_VAL" : "PX_AVG";
+  for(let h=0; h<Math.min(12,aoa.length); h++){
+    const codes = (aoa[h]||[]).map(hdrCode);
+    if(!codes.includes(need) || !codes.includes("BASE_YM")) continue;
+    const recs = [];
+    for(const row of aoa.slice(h+1)){
+      const r = {}; codes.forEach((k,i) => { if(k && row[i]!=null && row[i]!=="") r[k] = row[i]; });
+      r.BASE_YM = ymFromCell(r.BASE_YM) || normYm(r.BASE_YM);
+      if(kind==="dong"){ if(!r.PX_TYPE && r.IDX_TYPE) r.PX_TYPE = r.IDX_TYPE; delete r.IDX_TYPE; delete r.IDX_VAL; if(r.BJD_CD!=null) r.BJD_CD = String(r.BJD_CD).replace(/\.0$/,""); }
+      else if(r.SGG_CD!=null) r.SGG_CD = String(r.SGG_CD).replace(/\.0$/,"");
+      if(r.BASE_YM && r.BASE_YM.length===6 && num(r[need])!=null) recs.push(r);
+    }
+    return recs;
+  }
+  return null;
+}
+function parseWide(aoa, type, src){
+  let best = {dir:null, i:-1, c:0};
+  for(let i=0; i<Math.min(aoa.length,40); i++){ const c = (aoa[i]||[]).filter(ymFromCell).length; if(c > best.c) best = {dir:"row", i, c}; }
+  const ncol = Math.max(0, ...aoa.slice(0,80).map(r => r ? r.length : 0));
+  for(let j=0; j<Math.min(ncol,8); j++){ let c = 0; for(const row of aoa) if(ymFromCell(row?.[j])) c++; if(c > best.c) best = {dir:"col", i:j, c}; }
+  if(best.c < 3) return null;
+  const recs = [], matched = new Set(), unmatched = new Set();
+  const push = (parts, cells) => {
+    if(!cells.some(c => num(c.v)!=null)) return;
+    const cd = matchRegionLabel(parts.filter(x => x!=null && x!=="").map(String));
+    const label = parts.filter(x => x!=null && x!=="").join(" ");
+    if(!cd){ unmatched.add(label || "(이름 없음)"); return; }
+    matched.add(cd);
+    for(const c of cells){ const v = num(c.v); if(v!=null && v>0) recs.push({BASE_YM:c.ym, SGG_CD:cd, IDX_TYPE:type, IDX_VAL:v, IDX_SRC:src}); }
+  };
+  if(best.dir==="col"){   // 행 = 월, 열 = 지역 (머리글 여러 줄, 병합 셀은 왼쪽 값으로 채움)
+    const j = best.i, drows = aoa.map((r,i)=>[i, ymFromCell(r?.[j])]).filter(x=>x[1]);
+    const hdr = aoa.slice(Math.max(0, drows[0][0]-4), drows[0][0]);
+    for(let k=j+1; k<ncol; k++){
+      const parts = hdr.map((hr,hi) => { let v = hr?.[k]; if((v==null||v==="") && hi < hdr.length-1) for(let kk=k-1; kk>j; kk--){ if(hr?.[kk]!=null && hr[kk]!==""){ v = hr[kk]; break; } } return v; });
+      push(parts, drows.map(([i,ym]) => ({ym, v:aoa[i]?.[k]})));
+    }
+  } else {               // 행 = 지역, 열 = 월 (왼쪽 지역명 열 여러 개, 병합 셀은 위 값으로 채움)
+    const i0 = best.i, dcols = (aoa[i0]||[]).map((v,c)=>[c, ymFromCell(v)]).filter(x=>x[1]);
+    const lc = dcols[0][0];
+    for(let i=i0+1; i<aoa.length; i++){
+      const row = aoa[i]; if(!row) continue;
+      const parts = []; for(let c=0; c<lc; c++){ let v = row[c]; if((v==null||v==="") && c < lc-1) for(let ii=i-1; ii>i0; ii--){ if(aoa[ii]?.[c]!=null && aoa[ii][c]!==""){ v = aoa[ii][c]; break; } } parts.push(v); }
+      push(parts, dcols.map(([c,ym]) => ({ym, v:row[c]})));
+    }
+  }
+  return {recs, matched:matched.size, unmatched:[...unmatched]};
+}
+let PXP = null;
+async function readPxFile(f, kind){
+  let wb;
+  if(/\.csv$/i.test(f.name)){
+    const buf = await f.arrayBuffer(); let txt = new TextDecoder("utf-8").decode(buf);
+    if(txt.includes("\uFFFD")) try{ txt = new TextDecoder("euc-kr").decode(buf); }catch(e){}
+    wb = XLSX.read(txt, {type:"string", cellDates:true});
+  } else wb = XLSX.read(await f.arrayBuffer(), {type:"array", cellDates:true});
+  const sheets = [];
+  for(const name of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null, blankrows:false});
+    if(!aoa.length) continue;
+    if(kind==="idx" && /전세|월세/.test(name)){ sheets.push({name, fmt:"제외(전세·월세)", recs:[]}); continue; }
+    const long = parseLong(aoa, kind);
+    if(long){ sheets.push({name, fmt:"세로형", type:null, recs:long}); continue; }
+    if(kind==="idx"){
+      const t0 = canonType(name), type = PX_TYPES[t0] ? t0 : "아파트";
+      const w = parseWide(aoa, type, `KB(${f.name})`);
+      if(w){ sheets.push({name, fmt:"가로형", type, recs:w.recs, matched:w.matched, unmatched:w.unmatched}); continue; }
+    }
+    sheets.push({name, fmt:"인식 못함", recs:[]});
+  }
+  for(const sh of sheets){
+    const yms = sh.recs.map(r=>r.BASE_YM).sort();
+    sh.months = yms.length ? [yms[0], last(yms)] : null;
+    if(sh.matched==null) sh.matched = new Set(sh.recs.map(r => kind==="idx" ? r.SGG_CD : (r.BJD_CD || `${r.SIGUNGU}|${r.EMD}`))).size;
+    if(kind==="idx" && sh.fmt==="세로형") sh.recs.forEach(r => { r.IDX_SRC = r.IDX_SRC || `KB(${f.name})`; });
+  }
+  PXP = {kind, file:f.name, sheets};
+  drawPxPreview();
+}
+function drawPxPreview(){
+  const el = $("#pxPreview"); if(!PXP){ el.hidden = true; return; }
+  const ok = PXP.sheets.filter(s=>s.recs.length);
+  el.hidden = false;
+  el.innerHTML = `<div class="note"><b>${esc(PXP.file)}</b> · ${PXP.kind==="idx"?"KB 매매가격지수":"동 가격 프록시"} 미리보기 — 내용을 확인하고 반영하세요.</div>
+    <div class="tw" style="margin-top:8px"><table class="t"><thead><tr><th class="l">시트</th><th class="l">형식</th><th class="l">유형</th><th class="l">기간</th><th>${PXP.kind==="idx"?"매칭 지역":"동·유형"}</th><th>레코드</th><th class="l">매칭 안 된 머리글</th></tr></thead><tbody>${PXP.sheets.map((sh,i)=>`<tr><td class="l">${esc(sh.name)}</td><td class="l">${esc(sh.fmt)}</td>
+      <td class="l">${sh.fmt==="가로형"?`<select class="pxType" data-i="${i}" aria-label="지수 유형">${["아파트","연립·다세대","단독·다가구","주택종합"].map(t=>`<option ${t===sh.type?"selected":""}>${t}</option>`).join("")}</select>`:sh.recs.length?"파일의 유형 열":"-"}</td>
+      <td class="l">${sh.months?`${ymLabel(sh.months[0])} ~ ${ymLabel(sh.months[1])}`:"-"}</td><td>${sh.recs.length?sh.matched:"-"}</td><td>${fmtN(sh.recs.length)}</td><td class="l wrap">${esc((sh.unmatched||[]).slice(0,8).join(", "))}${(sh.unmatched||[]).length>8?` 외 ${sh.unmatched.length-8}`:""}</td></tr>`).join("")}</tbody></table></div>
+    <div class="filters" style="margin-top:8px"><button class="btn pri" id="pxApply" ${ok.length?"":"disabled"}>저장소에 반영 (${fmtN(sum(ok,s=>s.recs.length))}건)</button><button class="btn" id="pxCancel">취소</button>
+    ${ok.length?"":`<span class="muted">읽을 수 있는 시트가 없습니다. ${PXP.kind==="idx"?"세로형은 기준년월·시군구코드·매매가격지수 열, 가로형은 월이 한 축에 3개 이상 있어야 합니다.":"기준년월·법정동코드(또는 시군구·읍면동)·건물유형·평균가격·표본수 열이 필요합니다."}</span>`}
+    ${PXP.kind==="idx"&&ok.some(s=>s.unmatched?.length)?`<span class="muted">전국·권역 합계 열은 매칭되지 않는 것이 정상입니다.</span>`:""}</div>`;
+  $$(".pxType").forEach(sel => sel.onchange = () => { const sh = PXP.sheets[+sel.dataset.i]; sh.type = sel.value; sh.recs.forEach(r => r.IDX_TYPE = sel.value); });
+  $("#pxCancel").onclick = () => { PXP = null; drawPxPreview(); };
+  $("#pxApply").onclick = applyPx;
+}
+async function applyPx(){
+  if(!PXP) return;
+  if(PXS.sample){ PXS.idx = []; PXS.dong = []; PXS.log = []; PXS.sample = false; }
+  const kind = PXP.kind, map = new Map(PXS[kind].map(r => [pxKey(r), r]));
+  let n = 0, yms = [];
+  for(const sh of PXP.sheets) for(const r of sh.recs){ map.set(pxKey(r), r); n++; yms.push(r.BASE_YM); }
+  yms.sort();
+  PXS[kind] = [...map.values()];
+  PXS.log.unshift({at:new Date().toISOString().slice(0,16).replace("T"," "), kind, file:PXP.file, n, from:yms[0], to:last(yms)});
+  PXS.log = PXS.log.slice(0,30);
+  await DB.set("px", {idx:PXS.idx, dong:PXS.dong, log:PXS.log});
+  PXP = null; drawPxPreview();
+  rebuildAll(); refresh();
+  toast(`${kind==="idx"?"KB 지수":"동 프록시"} ${fmtN(n)}건을 반영하고 모든 기준월을 다시 계산했습니다.`);
+}
+let pxClearArm = null;
+function renderPxStore(){
+  const cov = (arr, keyFn) => { const yms = arr.map(r=>r.BASE_YM).sort(); return {n:arr.length, from:yms[0], to:last(yms), keys:new Set(arr.map(keyFn)).size, types:new Set(arr.map(r=>canonType(r.IDX_TYPE||r.PX_TYPE))).size}; };
+  const a = cov(PXS.idx, r=>r.SGG_CD), b = cov(PXS.dong, r=>r.BJD_CD||`${r.SIGUNGU}|${r.EMD}`);
+  $("#pxNote").textContent = PXS.sample ? "지금은 내장 가상 자료 — 실제 파일을 반영하면 대체됩니다" : DB.db ? "이 브라우저 저장소(IndexedDB)에 누적" : "저장소를 쓸 수 없어 이번 화면에서만 유지";
+  const row = (k, l, c, unit) => `<tr><td class="l"><b>${l}</b>${PXS.sample&&c.n?' <span class="pill warn">가상</span>':""}</td><td class="l">${c.n?`${ymLabel(c.from)} ~ ${ymLabel(c.to)}`:"자료 없음"}</td><td>${c.keys} ${unit}</td><td>${c.types}종</td><td>${fmtN(c.n)}</td><td>${c.n?`<button class="btn sm pxClr" data-k="${k}">${pxClearArm===k?"한 번 더 누르면 삭제":"비우기"}</button>`:""}</td></tr>`;
+  $("#pxCovT").innerHTML = `<thead><tr><th class="l">저장소</th><th class="l">기간</th><th>지역</th><th>유형</th><th>레코드</th><th></th></tr></thead><tbody>${row("idx","KB 매매가격지수",a,"시군구·시도")}${row("dong","동 가격 프록시",b,"동")}</tbody>`;
+  $$(".pxClr").forEach(bt => bt.onclick = async () => {
+    const k = bt.dataset.k;
+    if(pxClearArm!==k){ pxClearArm = k; renderPxStore(); return; }
+    pxClearArm = null; PXS[k] = []; if(PXS.sample && !PXS.idx.length && !PXS.dong.length) PXS.sample = false;
+    await DB.set("px", {idx:PXS.idx, dong:PXS.dong, log:PXS.log}); rebuildAll(); refresh(); toast("가격지표 저장소를 비웠습니다.");
+  });
+  $("#pxLog").innerHTML = PXS.log.length ? "최근 반영: " + PXS.log.slice(0,4).map(l=>`${esc(l.at)} ${l.kind==="idx"?"KB 지수":"동 프록시"} ${esc(l.file)} (${ymLabel(l.from)}~${ymLabel(l.to)}, ${fmtN(l.n)}건)`).join(" · ") : "";
+}
+
 function renderData(){
+  renderAddrStore(); drawAddrPreview(); renderPxStore(); drawPxPreview();
   const yms = Object.keys(APP.snaps).sort().reverse();
   $("#dStore").textContent = DB.db ? "브라우저 저장소(IndexedDB)에 보관 — 다른 PC·브라우저와 공유되지 않음" : "저장소를 쓸 수 없어 이번 화면에서만 유지";
   $("#dSnapT").innerHTML = `<thead><tr><th class="l">기준월</th><th class="l">파일</th><th>주담대</th><th>투자</th><th>연금</th><th>익스포저 합계</th><th>오류</th><th class="l">불러온 시각</th><th></th></tr></thead><tbody>` +
@@ -1457,8 +2067,8 @@ function renderData(){
   $("#rTxt").value = APP.D ? reportText() : "";
   renderSettings();
 }
-const STD_COLS = [["ym","기준년월"],["id","관리번호"],["seq","부동산순번"],["src","원천구분"],["srcNo","원천식별번호"],["name","부동산명"],["type","부동산유형"],["addr","도로명주소"],["sido","시도"],["sgg","시군구"],["emd","읍면동"],["bjd","법정동코드"],["sggCd","시군구코드"],["bjdHow","지역부여방식"],["lat","위도"],["lng","경도"],["geo","좌표정확도"],["area","면적(㎡)"],["appr","평가금액"],["apprSrc","평가구분"],["apprDt","평가일"],["expo","익스포저"],["bal","대출잔액"],["alloc","배분비율"],["senior","선순위금액"],["mort","근저당설정금액"],["fv","공정가치"],["book","장부금액"],["share","지분율"],["gain","평가손익"],["paid","지급누계"],["intc","이자누계"],["fee","기타비용누계"],["ltv","LTV(평가시점)"],["idxLevel","지수구분"],["ratio","지수조정계수"],["adjVal","지수조정가치"],["adjLtv","지수조정LTV"],["qlty","건전성"],["dlq","연체일수"],["mat","만기일"],["yoy","지역지수 전년대비"],["mom","지역지수 전월대비"],["ews","조기경보등급"]];
-function stdRow(r){ return STD_COLS.map(([k]) => k==="ews" ? EWS[r.ews].name : (typeof r[k]==="number" && ["ltv","adjLtv","ratio","yoy","mom","alloc","share"].includes(k)) ? +r[k].toFixed(6) : r[k] ?? ""); }
+const STD_COLS = [["ym","기준년월"],["id","관리번호"],["seq","부동산순번"],["src","원천구분"],["srcNo","원천식별번호"],["name","부동산명"],["type","부동산유형"],["addr","도로명주소"],["sido","시도"],["sgg","시군구"],["emd","읍면동"],["bjd","법정동코드"],["sggCd","시군구코드"],["bjdHow","지역부여방식"],["lat","위도"],["lng","경도"],["geo","좌표정확도"],["area","면적(㎡)"],["appr","평가금액"],["apprSrc","평가구분"],["apprDt","평가일"],["expo","익스포저"],["bal","대출잔액"],["alloc","배분비율"],["senior","선순위금액"],["mort","근저당설정금액"],["fv","공정가치"],["book","장부금액"],["share","지분율"],["gain","평가손익"],["paid","지급누계"],["intc","이자누계"],["fee","기타비용누계"],["ltv","LTV(평가시점)"],["idxLevel","지수구분"],["ratio","지수조정계수"],["adjVal","지수조정가치"],["adjLtv","지수조정LTV"],["qlty","건전성"],["dlq","연체일수"],["mat","만기일"],["yoy","지역지수 전년대비"],["mom","지역지수 전월대비"],["sggYoy","시군구KB 전년대비"],["dYoy","동프록시 전년대비"],["dN","동프록시 표본수"],["dW","동프록시 가중치"],["ews","조기경보등급"]];
+function stdRow(r){ return STD_COLS.map(([k]) => k==="ews" ? EWS[r.ews].name : k==="dYoy" ? (r.dong?.yoy!=null ? +r.dong.yoy.toFixed(6) : "") : k==="dN" ? (r.dong?.n ?? "") : k==="dW" ? (r.dong ? (r.dong.cred ? +r.dong.w.toFixed(4) : 0) : "") : k==="sggYoy" ? (r.sggYoy!=null ? +r.sggYoy.toFixed(6) : "") : (typeof r[k]==="number" && ["ltv","adjLtv","ratio","yoy","mom","alloc","share"].includes(k)) ? +r[k].toFixed(6) : r[k] ?? ""); }
 function csvText(){
   const q = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
   return [STD_COLS.map(c=>c[1]).join(","), ...APP.D.rows.map(r => stdRow(r).map(q).join(","))].join("\r\n");
@@ -1471,6 +2081,7 @@ function exportXlsx(){
   add("통합테이블", [STD_COLS.map(c=>c[1]), ...D.rows.map(stdRow)]);
   const A = [...D.agg.g.values()].sort((a,b)=>b.tot-a.tot);
   add("지역집계_시군구", [["시도","시군구","시군구코드","건수","주담대","투자부동산","주택연금","합계","비중","전월합계","지수전년대비","지수전월대비","연속하락(개월)","지수구분","조기경보"], ...A.map(a=>[a.sido,a.sgg,a.cd,a.n,a.by["주택담보대출"]||0,a.by["투자부동산"]||0,a.by["주택연금"]||0,a.tot,+a.share.toFixed(6),a.prev?.tot??"",a.yoy??"",a.mom??"",a.streak,a.idxLevel,EWS[a.ews].name])]);
+  add("동가격프록시", [["시도","시군구","읍면동","건물유형","익스포저","건수","표본수","가중치","동 전년대비","시군구KB 전년대비","차이","연속하락","동 등급","숨은 하락"], ...[...D.dong.values()].sort((a,b)=>b.tot-a.tot).map(a=>[a.sido,a.sgg,a.emd,a.type,a.tot,a.n,a.d.n,a.d.cred?+a.d.w.toFixed(4):0,a.d.yoy??"",a.sggYoy??"",a.gap??"",a.d.streak,a.grade==null?"표본 부족":EWS[a.grade].name,a.hidden?"Y":""])]);
   add("조기경보", [["등급","지역","익스포저","비중","근거"], ...A.filter(a=>a.ews>0).sort((a,b)=>b.ews-a.ews).map(a=>[EWS[a.ews].name,a.name,a.tot,+a.share.toFixed(6),a.why.join(" · ")])]);
   const sc = APP.set.presets.map(p => ({p, r:runStress(D.rows, stressParams({h:p.h,c:p.c,d:APP.set.dispose,scope:p.scope,topN:p.topN,picked:new Set()}))}));
   add("스트레스", [["시나리오","주택하락률","상업용하락률","처분비용률","범위","주담대 담보부족","투자 평가손실","연금 담보부족","합계","LTV80초과 건","LTV100초과 건"], ...sc.map(({p,r})=>[p.k,p.h/100,p.c/100,APP.set.dispose/100,p.scope==="top"?`상위 ${p.topN}개 시군구`:"전국",Math.round(r.src["주택담보대출"].loss),Math.round(r.src["투자부동산"].loss),Math.round(r.src["주택연금"].loss),Math.round(r.total),r.ltv80.n,r.ltv100.n])]);
@@ -1500,6 +2111,7 @@ function reportText(){
     `5. 주택연금: 잔액 ÷ 지수조정 주택가격 ${APP.set.hpHigh}% 이상 ${hpHi.length}건 (전체 ${hp.length}건).`,
     `6. 스트레스('${mid.k}', 주택 −${mid.h}%·상업용 −${mid.c}%, 처분비용 ${APP.set.dispose}%): 주담대 담보부족 ${fmtWon(mr.src["주택담보대출"].loss)}원, 투자부동산 평가손실 ${fmtWon(mr.src["투자부동산"].loss)}원, 주택연금 담보부족 ${fmtWon(mr.src["주택연금"].loss)}원, 합계 ${fmtWon(mr.total)}원.`,
     `7. 조기경보: 경계 ${e3.length}곳${e3.length?`(${e3.slice(0,5).map(a=>a.name).join(", ")})`:""}, 주의 ${e2.length}곳${e2.length?`(${e2.slice(0,5).map(a=>a.name).join(", ")})`:""}.`,
+    ...(D.dong.size ? [`8. 동 가격 프록시: ${rows.filter(r=>r.dong?.cred).length}건에 동 지수 반영. 시군구 KB 지수로는 보이지 않는 하락 동 ${[...D.dong.values()].filter(a=>a.hidden).length}곳${[...D.dong.values()].filter(a=>a.hidden).length?`(${[...D.dong.values()].filter(a=>a.hidden).sort((a,b)=>b.tot-a.tot).slice(0,4).map(a=>`${a.sgg} ${a.emd} ${a.type} ${fmtChg(a.d.yoy)}`).join(", ")})`:""}, 익스포저 ${fmtWon(sum([...D.dong.values()].filter(a=>a.hidden),a=>a.tot))}원.`] : []),
     ``,
     `※ 데이터 점검: 오류 ${cur.issues.filter(i=>i.lv==="오류").length}건, 확인 ${cur.issues.filter(i=>i.lv==="확인").length}건. 지역 미확정 ${rows.length===D.rows.length?0:D.rows.length-rows.length}건은 집계에서 제외.`,
     `※ 지수조정 가치 = 평가금액 × (기준월 지수 ÷ 평가월 지수). 지수 출처: ${cur.prices.srcs.join(", ")||"-"}.`,
@@ -1509,17 +2121,20 @@ function reportText(){
 const SET_FIELDS = [
   ["ewsWatchYoy","관찰: 지수 전년대비 이하(%)"],["ewsStreak","관찰: 연속 하락 개월"],["ewsShare","주의: 익스포저 비중 이상(%)"],["ewsLtv","주의: 지수조정 LTV 초과(%)"],["ewsAlertYoy","경계: 지수 전년대비 이하(%)"],
   ["ltvHigh","고LTV 표시 기준(%)"],["hpHigh","주택연금 잔액비율 경고(%)"],["dispose","처분비용률(%)"],
+  ["pxMinN","동 프록시 최소 표본수(이동평균 기간 합)"],["pxK","동 프록시 가중 k (w = n÷(n+k))"],["pxWindow","동 평균가 이동평균(개월)"],["dongPropagate","하락 동 익스포저 비중 → 시군구 관찰(%)"],
 ];
 function renderSettings(){
   const s = APP.set;
   $("#setGrid").innerHTML = SET_FIELDS.map(([k,l])=>`<label for="set-${k}">${l}<input id="set-${k}" type="number" step="0.5" value="${s[k]}"></label>`).join("") +
     s.presets.map((p,i)=>`<label for="set-p${i}h">시나리오 '${esc(p.k)}' 주택/상업 하락(%)<span style="display:flex;gap:4px"><input id="set-p${i}h" type="number" value="${p.h}" style="width:60px"><input id="set-p${i}c" type="number" value="${p.c}" style="width:60px" aria-label="${esc(p.k)} 상업용 하락률"></span></label>`).join("") +
+    `<label for="set-idxMode">지수 기준<select id="set-idxMode" style="height:28px;border:1px solid var(--line);border-radius:5px;background:var(--surface)"><option value="dong" ${s.idxMode==="dong"?"selected":""}>동 프록시 우선(신뢰도 가중)</option><option value="sgg" ${s.idxMode==="sgg"?"selected":""}>시군구 KB 지수만</option></select></label>` +
     `<label for="set-vw">브이월드 API 키(배경지도)<input id="set-vw" type="text" value="${esc(s.vworldKey)}" style="width:160px;text-align:left"></label>`;
   SET_FIELDS.forEach(([k]) => $("#set-"+k).onchange = e => { s[k] = +e.target.value; saveSettings(); });
+  $("#set-idxMode").onchange = e => { s.idxMode = e.target.value; saveSettings(); };
   s.presets.forEach((p,i) => { $(`#set-p${i}h`).onchange = e => { p.h = +e.target.value; saveSettings(); }; $(`#set-p${i}c`).onchange = e => { p.c = +e.target.value; saveSettings(); }; });
   $("#set-vw").onchange = e => { s.vworldKey = e.target.value.trim(); saveSettings(); if(MAP.map){ $("#mBase").innerHTML = `<option value="bound">경계지도(내장)</option><option value="osm">OpenStreetMap</option>${s.vworldKey?'<option value="vworld">브이월드</option>':""}`; $("#mBase").value = MAP.base; } };
 }
-function saveSettings(){ LS.set("reh.settings", APP.set); STR.d = null; derive(); MAP.dirty = true; toast("설정을 저장하고 다시 계산했습니다."); }
+function saveSettings(){ LS.set("reh.settings", APP.set); STR.d = null; rebuildAll(); refresh(); toast("설정을 저장하고 다시 계산했습니다."); }
 
 /* =====================================================================
    14. 안내
@@ -1539,9 +2154,20 @@ function renderGuide(){
   <li>지수조정 가치 = 평가금액 × (기준월 지수 ÷ 평가월 지수). 같은 시군구의 아파트 지수를 먼저 쓰고, 없으면 시도 지수(시군구코드 = 시도 2자리 + 000)로 대체해 '시도 대체'로 표시합니다. 투자부동산은 공정가치를 그대로 씁니다.</li>
   <li>스트레스: 주담대 담보부족 = max(0, 선순위 + 익스포저 − 하락 후 가치 × (1 − 처분비용률)), 투자 평가손실 = 익스포저 × 하락률, 주택연금 담보부족 = max(0, 잔액 − 하락 후 가치). 주거용(아파트·연립·단독·오피스텔)은 주택 하락률, 그 외는 상업용 하락률을 적용합니다.</li>
   <li>지역 HHI = Σ(시군구 비중²) × 10,000</li></ul>
-  <h3>주소정제 단계</h3>
-  <ol><li>원천 법정동코드 10자리가 있으면 그대로 사용</li><li>매핑 사전(담당자 확정 이력)에 같은 주소가 있으면 적용</li><li>규칙 기반 정규화: 괄호·동호수·층 제거, 시도 약칭(서울시·경기·전북 등) 표준화, 시군구·읍면동 추출</li><li>실패하면 점검목록에 '미매칭'으로 올리고 후보(문자 유사도 상위 5곳)를 제시 → 담당자 확정</li></ol>
-  <p>좌표가 없으면 행정동 대표점, 그것도 없으면 시군구 대표점에 점선 핀으로 표시합니다. 법정동코드 10자리와 건별 좌표는 행정안전부 주소DB 매칭 단계에서 채우는 것이 원칙이며, 이 화면의 주소정제는 시군구 분류까지 보장합니다.</p>
+  <h3>주소 → 법정동 → 동 단위 관리</h3>
+  <p>로우데이터에는 <b>도로명주소만</b> 넣으면 됩니다. 아래 순서로 법정동코드 10자리를 붙이고, 같은 법정동끼리 묶어 동 단위로 집계합니다.</p>
+  <ol><li>원천 법정동코드(있으면 그대로)</li>
+  <li>매핑 사전: 담당자가 한 번 확정한 주소</li>
+  <li><b>도로명주소 사전</b>: 시 + 도로명 + 건물번호를 주소DB와 대조 → 법정동코드와 건물 좌표. 건물번호가 사전에 없어도 그 도로가 한 동에만 걸쳐 있으면 동을 확정</li>
+  <li>법정동 이름: 주소의 괄호 참고항목 <code>(잠실동)</code>, 지번주소, <code>인천광역시 미추홀구 숭의동</code>처럼 동까지 적은 주소 → 내장 법정동코드표</li>
+  <li>그래도 안 되면 시군구까지만 분류하고 점검목록에 올림 → 후보를 골라 확정하면 매핑 사전에 저장</li></ol>
+  <p>내장 법정동코드표는 행정표준코드관리시스템 기준이며, 옛 행정구역명·코드(예: 광주광역시 → 전남광주통합특별시, 인천 남구 → 미추홀구, 전라북도 → 전북특별자치도)도 현행 코드로 연결합니다. 행정구역이 바뀌면 <code>tools/prep_bjd.py</code>로 코드표를 새로 만들어 다시 빌드합니다.</p>
+  <h3>필요한 외부 자료와 받는 곳</h3>
+  <table class="t"><thead><tr><th class="l">자료</th><th class="l">받는 곳 · 주기</th><th class="l">시스템에 넣는 곳</th></tr></thead><tbody>
+  <tr><td class="l wrap">도로명주소 DB (건물별 법정동코드 · 좌표)</td><td class="l wrap">행정안전부 도로명주소 개발자센터 → 주소DB(위치정보요약DB 등) · 보유 시도분 · 분기 1회 정도</td><td class="l wrap">데이터 → 도로명주소 사전</td></tr>
+  <tr><td class="l wrap">KB 월간 매매가격지수</td><td class="l wrap">KB부동산 데이터허브 시계열 엑셀 · 매월</td><td class="l wrap">데이터 → 가격지표 → KB 매매가격지수 파일</td></tr>
+  <tr><td class="l wrap">동 가격 프록시 (법정동 × 유형 ㎡당 가격 · 표본수)</td><td class="l wrap">공공데이터포털 국토부 실거래가 API(아파트 · 연립다세대 · 오피스텔 · 단독다가구 매매) → 외부망에서 <code>tools/collect_rtms.py</code> 실행 · 매월. 사내 KB시세 자료가 있으면 같은 양식으로 변환해 사용</td><td class="l wrap">데이터 → 가격지표 → 동 가격 프록시 파일</td></tr>
+  </tbody></table>
   <h3>내부망 이전</h3>
   <ul><li><code>부동산통합관리시스템_내부망.html</code> 파일 하나만 반입하면 됩니다. 지도·엑셀 라이브러리와 행정구역 경계가 파일 안에 들어 있어 Python 설치나 서버가 필요 없습니다.</li>
   <li>배경을 '경계지도(내장)'로 두면 외부로 나가는 요청이 0건입니다. 브라우저 개발자도구 네트워크 탭으로 확인해 보안성 검토 근거로 쓸 수 있습니다.</li>
@@ -1558,10 +2184,111 @@ function renderGuide(){
 }
 
 /* =====================================================================
+   14-2. AI 질문 (OpenRouter 네모트론 · /api/chat 중계가 있는 환경에서만)
+   ===================================================================== */
+const CHAT = {ok:false, model:"", pass:false, msgs:[], busy:false, ctrl:null};
+const SS = { get(k){ try{ return sessionStorage.getItem(k) || ""; }catch(e){ return ""; } }, set(k,v){ try{ sessionStorage.setItem(k,v); }catch(e){} } };
+async function chatProbe(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  try{
+    const r = await fetch("api/chat", {method:"GET", headers:{Accept:"application/json"}});
+    if(!r.ok || !/json/.test(r.headers.get("content-type")||"")) return;
+    const j = await r.json(); if(j==null || j.model==null) return;
+    Object.assign(CHAT, {ok:!!j.ok, model:j.model, pass:!!j.passcode});
+    $("#btnChat").hidden = false;
+    $("#chatModel").textContent = j.model;
+    $("#chatFoot").textContent = j.ok ? "답변은 제공한 집계 데이터만 근거로 합니다. 고객번호·계좌·상세주소는 보내지 않습니다. 외부 모델이므로 실데이터는 사내 설치 모델에서만 사용하세요." : "서버에 API 키가 설정되지 않았습니다(Vercel 환경변수 OPENROUTER_API_KEY).";
+  }catch(e){}
+}
+function chatContext(scope){
+  const D = APP.D; if(!D || scope==="none") return "";
+  const cur = D.cur, A = [...D.agg.g.values()].sort((a,b)=>b.tot-a.tot), eok = v => ((v||0)/1e8).toFixed(1);
+  const L = [`[기준월] ${ymLabel(cur.ym)}${cur.sample?" · 가상 샘플 데이터":""}${D.cmp?` · 비교월 ${ymLabel(D.cmp.ym)}`:""}`, "", "[요약]", reportText()];
+  if(scope==="sum"){
+    L.push("", "[시군구별] 지역 | 익스포저(억원) | 비중 | 주담대/투자/연금(억원) | 전월 대비(억원) | KB지수 전년대비 | 조기경보 | 근거");
+    A.slice(0,40).forEach(a => L.push(`${a.name} | ${eok(a.tot)} | ${fmtPct(a.share)} | ${eok(a.by["주택담보대출"])}/${eok(a.by["투자부동산"])}/${eok(a.by["주택연금"])} | ${a.prev?eok(a.tot-a.prev.tot):"-"} | ${fmtChg(a.yoy)} | ${EWS[a.ews].name} | ${a.why.join("; ")||"-"}`));
+    const dg = [...D.dong.values()].sort((a,b)=>b.tot-a.tot).slice(0,40);
+    if(dg.length){
+      L.push("", "[동 가격 프록시] 동 | 유형 | 익스포저(억원) | 동 전년대비 | 시군구KB 전년대비 | 표본 | 동 등급 | 숨은 하락");
+      dg.forEach(a => L.push(`${a.name} | ${a.type} | ${eok(a.tot)} | ${fmtChg(a.d.yoy)} | ${fmtChg(a.sggYoy)} | ${a.d.n} | ${a.grade==null?"표본 부족":EWS[a.grade].name} | ${a.hidden?"예":""}`));
+    }
+    L.push("", "[스트레스 시나리오] 이름 | 가정 | 주담대 담보부족 | 투자 평가손실 | 연금 담보부족 | 합계 (억원)");
+    APP.set.presets.forEach(p => { const r = runStress(D.rows, stressParams({h:p.h, c:p.c, d:APP.set.dispose, scope:p.scope, topN:p.topN, picked:new Set()})); L.push(`${p.k} | 주택 -${p.h}% 상업 -${p.c}%${p.scope==="top"?` 상위 ${p.topN}개 시군구`:" 전국"} | ${eok(r.src["주택담보대출"].loss)} | ${eok(r.src["투자부동산"].loss)} | ${eok(r.src["주택연금"].loss)} | ${eok(r.total)}`); });
+    const cats = {}; cur.issues.filter(i=>i.lv!=="정보").forEach(i => { const k = `${i.lv}·${i.cat}`; cats[k] = (cats[k]||0) + 1; });
+    L.push("", "[데이터 점검] " + (Object.entries(cats).map(([k,v])=>`${k} ${v}건`).join(", ") || "오류·확인 없음"));
+  }
+  return L.join("\n");
+}
+const CHAT_SYS = `너는 리스크관리부의 부동산 익스포저(주택담보대출 · 투자부동산 · 주택연금) 분석을 돕는 보조자다.
+- 아래 [데이터]에 있는 수치만 근거로 한국어로 답한다. 데이터에 없는 수치는 만들지 말고 "제공된 데이터에 없음"이라고 말한다.
+- 금액은 억원, 비율은 %로 쓰고, 근거가 된 지역·지표를 함께 적는다.
+- 판단이나 권고는 '검토 의견'이라고 밝히고 단정하지 않는다.
+- 데이터가 가상 샘플이면 답 끝에 그 사실을 한 줄로 적는다.
+- 간결하게 쓰고, 필요하면 짧은 목록을 쓴다.`;
+function chatRender(){
+  const fmt = t => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4}\s*(.+)$/gm, "<b>$1</b>");
+  $("#chatLog").innerHTML = CHAT.msgs.length ? CHAT.msgs.map(m => `<div class="msg ${m.role==="user"?"u":m.err?"e":"a"}">${fmt(m.content || (m.role==="assistant"?"생각하는 중…":""))}</div>`).join("") :
+    `<div class="muted">기준월 ${ymLabel(APP.D?.cur.ym)} 집계 데이터를 바탕으로 답합니다. 아래 예시를 누르거나 질문을 입력하세요.</div>`;
+  $("#chatLog").scrollTop = $("#chatLog").scrollHeight;
+  $("#chatSug").innerHTML = CHAT.msgs.length ? "" : ["가격 하락지역 익스포저가 큰 곳은?","숨은 하락 동을 설명해줘","스트레스 '심각' 결과를 요약해줘","분기 보고 코멘트를 3문장으로 써줘"].map(q=>`<button class="chip" type="button">${esc(q)}</button>`).join("");
+  $$("#chatSug .chip").forEach(b => b.onclick = () => chatSend(b.textContent));
+  $("#chatSend").textContent = CHAT.busy ? "중지" : "보내기";
+}
+async function chatSend(q){
+  if(CHAT.busy){ CHAT.ctrl?.abort(); return; }
+  q = String(q||"").trim(); if(!q) return;
+  if(CHAT.pass && !SS.get("reh.pass")){ $("#chatPassBox").hidden = false; $("#chatPass").focus(); toast("접속 암호를 입력하세요."); return; }
+  const scope = $("#chatScope").value, ctx = chatContext(scope);
+  const hist = CHAT.msgs.filter(m=>!m.err).slice(-12).map(m=>({role:m.role, content:m.content}));
+  const messages = [{role:"system", content: CHAT_SYS + (ctx ? `\n\n[데이터]\n${ctx}` : "\n\n(이번 질문에는 데이터를 보내지 않았다. 데이터 관련 질문이면 데이터를 켜 달라고 안내한다.)")}, ...hist, {role:"user", content:q}];
+  CHAT.msgs.push({role:"user", content:q});
+  const ans = {role:"assistant", content:""}; CHAT.msgs.push(ans);
+  CHAT.busy = true; CHAT.ctrl = new AbortController(); $("#chatQ").value = ""; chatRender();
+  try{
+    const res = await fetch("api/chat", {method:"POST", signal:CHAT.ctrl.signal, headers:{"Content-Type":"application/json", ...(CHAT.pass?{"x-app-passcode":SS.get("reh.pass")}:{})}, body:JSON.stringify({messages})});
+    if(!res.ok){
+      const j = await res.json().catch(()=>({}));
+      if(res.status===401 && CHAT.pass){ SS.set("reh.pass",""); $("#chatPassBox").hidden = false; }
+      throw new Error(j.error || `요청 실패 (${res.status})`);
+    }
+    $("#chatPassBox").hidden = true;
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "", t0 = 0;
+    for(;;){
+      const {done, value} = await rd.read(); if(done) break;
+      const parts = (buf + dec.decode(value, {stream:true})).split("\n"); buf = parts.pop();
+      for(const line of parts){
+        if(!line.startsWith("data:")) continue;
+        const d = line.slice(5).trim(); if(!d || d==="[DONE]") continue;
+        let j; try{ j = JSON.parse(d); }catch(e){ continue; }
+        if(j.error) throw new Error(j.error.message || "모델 오류");
+        const c = j.choices?.[0]?.delta?.content; if(c){ ans.content += c; if(Date.now()-t0 > 60){ chatRender(); t0 = Date.now(); } }
+      }
+    }
+    if(!ans.content) ans.content = "(빈 답변이 왔습니다. 잠시 뒤 다시 시도하세요.)";
+  }catch(e){
+    if(e.name==="AbortError"){ ans.content += "\n(중지함)"; }
+    else { CHAT.msgs.pop(); CHAT.msgs.push({role:"assistant", content:e.message, err:true}); }
+  }
+  CHAT.busy = false; CHAT.ctrl = null; chatRender();
+}
+function chatBind(){
+  $("#btnChat").onclick = () => { $("#chat").hidden = !$("#chat").hidden; if(!$("#chat").hidden){ chatRender(); $("#chatQ").focus(); } };
+  $("#chatClose").onclick = () => { $("#chat").hidden = true; };
+  $("#chatNew").onclick = () => { CHAT.ctrl?.abort(); CHAT.msgs = []; chatRender(); };
+  $("#chatPeek").onclick = () => { const b = $("#chatPeekBox"); b.hidden = !b.hidden; if(!b.hidden){ const c = chatContext($("#chatScope").value); b.textContent = c ? `${c}\n\n(약 ${fmtN(c.length)}자)` : "보내는 데이터 없음"; } };
+  $("#chatScope").onchange = () => { if(!$("#chatPeekBox").hidden) $("#chatPeek").click(), $("#chatPeek").click(); };
+  $("#chatForm").onsubmit = e => { e.preventDefault(); chatSend($("#chatQ").value); };
+  $("#chatQ").onkeydown = e => { if(e.key==="Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); chatSend($("#chatQ").value); } };
+  $("#chatPassOk").onclick = () => { SS.set("reh.pass", $("#chatPass").value); $("#chatPass").value = ""; $("#chatPassBox").hidden = true; toast("암호를 저장했습니다(이 탭에서만)."); };
+  chatProbe();
+}
+
+/* =====================================================================
    15. 시작
    ===================================================================== */
 async function boot(){
   $$("#nav button").forEach(b => b.onclick = () => go(b.dataset.v));
+  chatBind();
   $("#selYm").onchange = e => pickSnapshots(e.target.value);
   $("#selCmp").onchange = e => pickSnapshots(APP.cur, e.target.value || null);
   $("#qaBadge").onclick = () => go("qa");
@@ -1587,6 +2314,13 @@ async function boot(){
   await DB.open();
   APP.dict = (await DB.get("dict")) || LS.get("reh.dict", {});
   APP.recon = (await DB.get("recon")) || LS.get("reh.recon", {});
+  const px = await DB.get("px"); if(px){ PXS.idx = px.idx||[]; PXS.dong = px.dong||[]; PXS.log = px.log||[]; }
+  const ad = await DB.get("addr"); if(ad?.rows?.length){ ADS.rows = ad.rows; ADS.files = ad.files||[]; adsIndex(); }
+  $("#adBtn").onclick = () => $("#adFile").click();
+  $("#adFile").onchange = async e => { const f = [...e.target.files]; e.target.value = ""; if(!f.length) return; try{ await readAddrFiles(f); }catch(err){ console.error(err); toast("주소DB 파일을 읽지 못했습니다: " + err.message, 6000); } };
+  $("#pxIdxBtn").onclick = () => { $("#pxFile").dataset.kind = "idx"; $("#pxFile").click(); };
+  $("#pxDongBtn").onclick = () => { $("#pxFile").dataset.kind = "dong"; $("#pxFile").click(); };
+  $("#pxFile").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if(!f) return; $("#busy").hidden = false; try{ await readPxFile(f, e.target.dataset.kind); }catch(err){ console.error(err); toast("가격 파일을 읽지 못했습니다: " + err.message, 6000); } $("#busy").hidden = true; };
   const keys = (await DB.keys()).filter(k => String(k).startsWith("snap:"));
   for(const k of keys){ const s = await DB.get(k); if(s?.raw) APP.snaps[s.ym] = processSnapshot(s.raw, {ym:s.ym, file:s.file, loadedAt:s.loadedAt}, APP.dict); }
   if(!Object.keys(APP.snaps).length) loadSample();

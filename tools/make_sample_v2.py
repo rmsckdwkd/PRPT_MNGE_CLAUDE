@@ -5,11 +5,14 @@
   - 가격지표: 2023.01~기준월 월별 시계열 + 시도 지수(시군구코드 = 시도 2자리 + "000"). 이천시는 시군구 지수를 빼서 '대체 지수' 시연
   - 주담대 일부: 평가구분 감정평가, 평가일 = 실행일 → 지수조정 가치·LTV 시연
   - 주소정제 시연: 법정동코드·좌표 공란 + 비표준 주소, 좌표만 공란(대표점 표시)
+  - 동가격프록시: 법정동×건물유형 ㎡당 평균가·표본수 (숨은 하락 동 2곳, 표본 부족 동 1곳)
+  - KB_매매가격지수_가상_시계열.xlsx: 데이터허브식 가로형(행=월, 열=지역), 202610 포함 → 월 업데이트 시연
   - 202609 에만 의도적 오류 3건(법정동코드 9자리, 평가금액 누락, 배분비율 합 130%) → 점검사항 표시 확인용
 모든 주소·금액·번호는 가상이다.
 
 실행: python3 make_sample_v2.py   (작업 폴더의 샘플_로우데이터_가상.xlsx, regions.py 사용)
-출력: ../샘플데이터/샘플_가상_202608.xlsx, 샘플_가상_202609.xlsx, sample_data.json(화면 내장용)
+출력: ../샘플데이터/샘플_가상_202608.xlsx, 샘플_가상_202609.xlsx, 동가격프록시_가상_202301-202609.xlsx,
+      KB_매매가격지수_가상_시계열.xlsx, sample_data.json(화면 내장용)
 """
 import copy, json, math, random, sys
 from datetime import date, datetime
@@ -20,6 +23,23 @@ HERE = Path(__file__).resolve().parent
 WORK = HERE.parent.parent
 sys.path.insert(0, str(WORK))
 from regions import REGIONS  # noqa: E402
+from utmk import to_utmk  # noqa: E402
+
+# 현행 법정동코드표(prep_bjd.py 결과)로 샘플의 동 코드를 실제 코드로 맞춘다
+BJ = json.loads((HERE / "geo_data.json").read_text(encoding="utf-8"))["bjd"]
+BJE = {k: [x.split(":", 1) for x in v.split("|")] for k, v in BJ["e"].items()}
+RENAME = {("41590", "동탄동"): "청계동", ("41117", "광교동"): "이의동"}  # 법정동이 아닌 이름(행정동·생활권) 교정
+
+
+def real_code(sgg, emd):
+    emd = RENAME.get((sgg, emd), emd)
+    cands = [sgg] if sgg in BJ["s"] else list(BJ["al"].get(sgg, []))
+    cands += [k for k in BJ["s"] if k[:4] == sgg[:4] and k not in cands]
+    for c in cands:
+        for t, n in BJE.get(c, []):
+            if n == emd:
+                return c + t, emd
+    raise KeyError((sgg, emd))
 
 random.seed(26)
 SRC = WORK / "샘플_로우데이터_가상.xlsx"
@@ -115,25 +135,56 @@ for eid, addr in (("LN-0030", "서울시 송파구 가상로12길 34 (잠실동)
     for k in GEO:
         r.pop(k, None)
     r["ROAD_ADDR"], r["REMARK"] = addr, "[시연] 법정동코드·좌표 미부여 → 주소정제"
-# 좌표만 없는 건 → 대표점 표시
-for eid in ("LN-0040", "LN-0041", "LN-0042", "LN-0043"):
-    by_id[eid].pop("LAT"); by_id[eid].pop("LNG")
-    by_id[eid]["REMARK"] = "[시연] 좌표 미부여 → 대표점"
 hp_unmatched = data["3_주택연금"][-1]
 for k in GEO:
     hp_unmatched.pop(k, None)
 hp_unmatched["ROAD_ADDR"], hp_unmatched["REMARK"] = "가상도 가상군 미확인리 12", "[시연] 주소 미매칭"
 
+# 도로명주소만 입력하는 운영 방식 재현: 실제 법정동코드로 맞추고, 가상 도로명을 동마다 따로 부여한 뒤 지역 칸은 비운다
+ADDR_DICT = []          # 가상 도로명주소 사전 (행안부 주소DB 형식 흉내: 좌표는 UTM-K)
+NO_NUM = {"LN-0050", "LN-0051", "HP-0010"}   # 사전에 건물번호가 없는 건 → 도로 단위로 동 확정
+LEGACY = {"29140"}                           # 옛 시도명(광주광역시)으로 쓴 주소 → 현행 코드 변환 시연
+roads_seen = {}
+for sheet in DATA_SHEETS:
+    for r in data[sheet]:
+        if not r.get("BJD_CD") or r.get("LAT") is None:
+            continue
+        old_sgg = str(r["BJD_CD"])[:5]
+        code, emdn = real_code(old_sgg, r["EMD"])
+        sido, sggn = BJ["s"][code[:5]][:2]
+        reg = next(x for x in REGIONS if x["sgg"] == old_sgg)
+        ei = [e[0] for e in reg["emd"]].index(r["EMD"])
+        road = f"가상로{ei * 30 + random.randint(1, 30)}길"
+        num = random.randint(1, 300)
+        addr_sido, addr_sgg = (reg["sido"], reg["sigungu"]) if old_sgg in LEGACY and random.random() < 0.5 else (sido, sggn)
+        r["ROAD_ADDR"] = " ".join(x for x in (addr_sido, "" if code[:5] == "36110" else addr_sgg, road, str(num)) if x)
+        if r["EXPO_ID"] not in NO_NUM:
+            x, y = to_utmk(r["LAT"], r["LNG"])
+            ADDR_DICT.append([code[:5], code, sido, sggn, emdn, road, 0, num, 0, round(x, 2), round(y, 2)])
+        roads_seen.setdefault((code, road), set()).add(num)
+        r["BJD_CD"], r["EMD"] = code, emdn
+for (code, road), nums in roads_seen.items():       # 같은 도로의 다른 건물들 (사전에는 있고 담보는 없는 건물)
+    for _ in range(3):
+        n = random.randint(301, 400)
+        x, y = to_utmk(*next((reg["lat"], reg["lng"]) for reg in REGIONS if reg["sgg"][:4] == code[:4] or reg["sgg"] in BJ["old"].get(code[:5], [])))
+        ADDR_DICT.append([code[:5], code, *BJ["s"][code[:5]][:2], next(n2 for t, n2 in BJE[code[:5]] if code[:5] + t == code), road, 0, n, 0, round(x + random.uniform(-300, 300), 2), round(y + random.uniform(-300, 300), 2)])
+for sheet in DATA_SHEETS:
+    for r in data[sheet]:
+        if r["EXPO_ID"] in ("LN-0030", "LN-0031", "LN-0032"):
+            continue
+        for k in ("BJD_CD", "SIDO", "SIGUNGU", "EMD", "LAT", "LNG"):
+            r.pop(k, None)
+print("도로명주소 사전(가상)", len(ADDR_DICT), "건")
+
 sep = copy.deepcopy(data)
 m9 = sep["1_주택담보대출"]
 b9 = {r["EXPO_ID"]: r for r in m9}
-b9["LN-0007"]["BJD_CD"] = b9["LN-0007"]["BJD_CD"][:9]
+b9["LN-0007"]["BJD_CD"] = "116801010"
 b9["LN-0007"]["REMARK"] = "[시연 오류] 법정동코드 9자리"
 b9["LN-0015"].pop("APPR_AMT")
 b9["LN-0015"]["REMARK"] = "[시연 오류] 평가금액 누락"
 extra = copy.deepcopy(b9["LN-0021"])
 extra.update(RE_SEQ=2, ALLOC_RATIO=0.3, RE_NM="가상 공동담보 2번 물건", REMARK="[시연 오류] 배분비율 합 130%")
-extra["LAT"] = round(extra["LAT"] + 0.004, 6)
 m9.insert(m9.index(b9["LN-0021"]) + 1, extra)
 
 # ---------------------------------------------------------------- 202608 (전월) 스냅샷
@@ -188,9 +239,91 @@ for ym, d in (("202608", aug), ("202609", sep)):
     print(p.name, {s: len(d[s]) for s in DATA_SHEETS}, "가격지표", len(pr))
 
 
+# ---------------------------------------------------------------- 동 단위 가격 프록시 (확정 아님)
+# 법정동 × 건물유형별 ㎡당 평균가격 + 표본수. 시군구 지수 흐름에 동별 추세·표본 잡음을 더해 만든다.
+# 숨은 하락 시연: 시군구 지수는 오르는데 해당 동만 내리는 곳 2곳, 표본이 적은 동 1곳
+PX_TYPES = [("아파트", 1.0, 8, 40), ("연립·다세대", 0.55, 2, 12), ("오피스텔", 0.6, 1, 8), ("단독·다가구", 0.5, 0, 4)]
+SPECIAL = {("11710", "문정동", "아파트"): -0.0075, ("41135", "정자동", "아파트"): -0.006, ("11500", "화곡동", "연립·다세대"): -0.012}
+dong = []
+for reg in REGIONS:
+    s = series.get(reg["sgg"]) or sido_series[f'{reg["sgg"][:2]}000'][1]
+    for emd, _, _, tail in reg["emd"]:
+        for typ, fac, nlo, nhi in PX_TYPES:
+            if typ == "단독·다가구" and random.random() < 0.5 or typ == "오피스텔" and random.random() < 0.4:
+                continue
+            drift = SPECIAL.get((reg["sgg"], emd, typ), random.gauss(0, 0.0012))
+            base_ppm = reg["px"] / 84 * fac * random.uniform(0.85, 1.15)
+            lo, hi = (1, 4) if (reg["sgg"], emd, typ) == ("11500", "화곡동", "연립·다세대") else (nlo, nhi)
+            for i, ym in enumerate(ALL_M):
+                n = random.randint(lo, hi)
+                if n == 0:
+                    continue
+                idx = (s[ym] / s["202609"]) ** (0.7 if typ != "아파트" else 1)
+                avg = base_ppm * idx * math.exp(drift * (i - len(ALL_M) + 1)) * (1 + random.gauss(0, 0.035 / math.sqrt(n)))
+                rc, rn = real_code(reg["sgg"], emd)
+                dong.append(dict(BASE_YM=ym, BJD_CD=rc, SIDO=BJ["s"][rc[:5]][0], SIGUNGU=BJ["s"][rc[:5]][1], EMD=rn,
+                                 PX_TYPE=typ, PX_AVG=int(round(avg, -3)), PX_UNIT="원/㎡", PX_CNT=n, PX_SRC="KB시세 단지평균(가상)"))
+print("동 프록시", len(dong), "행")
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+HDR = [("기준년월", "BASE_YM"), ("법정동코드", "BJD_CD"), ("시도", "SIDO"), ("시군구", "SIGUNGU"), ("읍면동", "EMD"),
+       ("건물유형", "PX_TYPE"), ("평균가격", "PX_AVG"), ("단위", "PX_UNIT"), ("표본수", "PX_CNT"), ("출처", "PX_SRC")]
+wb = Workbook(); ws = wb.active; ws.title = "5_동가격프록시"
+ws["A1"] = "[동 가격 프록시] 1행 = 기준월 × 법정동 × 건물유형 (확정 시세 아님, ㎡당 평균가 권장 · 표본수 필수)"
+ws["A1"].font = Font(bold=True)
+ws["A2"] = "평균가격은 같은 단위로 계속 입력(원/㎡ 권장). 표본수가 적은 동은 시스템이 시군구 지수와 섞거나 대체한다."
+for j, (kr, en) in enumerate(HDR, 1):
+    c = ws.cell(row=3, column=j, value=f"{kr}\n{en}"); c.font = Font(bold=True); c.fill = PatternFill("solid", fgColor="E4DFEC")
+for i, r in enumerate(dong, 4):
+    for j, (_, en) in enumerate(HDR, 1):
+        ws.cell(row=i, column=j, value=r[en])
+wb.save(OUT / "동가격프록시_가상_202301-202609.xlsx")
+
+# KB 데이터허브식 가로형 시계열 (행 = 월, 열 = 시도/시군구 2단 머리글). 202610 한 달을 더 넣어 '월 업데이트' 시연
+nxt = {cd: round(v["202609"] * (1 + next(r["mom"] for r in REGIONS if r["sgg"] == cd)), 2) for cd, v in series.items()}
+wb = Workbook(); wb.remove(wb.active)
+for sheet, damp in (("1.매매APT", 1.0), ("2.매매연립", 0.7)):
+    ws = wb.create_sheet(sheet)
+    ws["A1"] = f"KB 월간 {sheet[2:]} 매매가격지수 (가상, 2022.1=100 아님 · 시연용)"
+    cols = []
+    last_sido = None
+    for reg in REGIONS:
+        if reg["sgg"] in NO_SGG_INDEX:
+            continue
+        cols.append((reg["sido"], reg["sigungu"], reg["sgg"]))
+    for cd, (sido, _) in sido_series.items():
+        cols.append((sido, "", cd))
+    cols.sort(key=lambda c: (c[2][:2], c[1] != "", c[1]))
+    short = {"서울특별시": "서울", "부산광역시": "부산", "대구광역시": "대구", "인천광역시": "인천", "광주광역시": "광주",
+             "대전광역시": "대전", "세종특별자치시": "세종", "경기도": "경기", "제주특별자치도": "제주"}
+    prev = None
+    for j, (sido, sgg, cd) in enumerate(cols, 2):
+        if sido != prev:
+            ws.cell(row=2, column=j, value=short.get(sido, sido)); prev = sido  # 병합셀처럼 첫 칸에만 시도명
+        ws.cell(row=3, column=j, value=sgg or short.get(sido, sido))
+    ws.cell(row=3, column=1, value="구분")
+    for i, ym in enumerate(ALL_M + ["202610"], 4):
+        ws.cell(row=i, column=1, value=f"{ym[:4]}.{ym[4:]}")
+        for j, (_, _, cd) in enumerate(cols, 2):
+            if cd in series:
+                v = nxt[cd] if ym == "202610" else series[cd][ym]
+            else:
+                ss = sido_series[cd][1]
+                v = ss["202609"] * 1.001 if ym == "202610" else ss[ym]
+            base = (series.get(cd) or sido_series[cd][1])["202609"]
+            ws.cell(row=i, column=j, value=round(base * (v / base) ** damp, 2))
+wb.save(OUT / "KB_매매가격지수_가상_시계열.xlsx")
+
+
 def enc(o):
     return o.strftime("%Y-%m-%d") if isinstance(o, (date, datetime)) else str(o)
 
 
+bundle["_px"] = {"dong": dong}
+bundle["_addr"] = {"rows": [dict(zip(["시군구코드", "법정동코드", "시도명", "시군구명", "법정읍면동명", "도로명", "지하여부", "건물본번", "건물부번", "X좌표", "Y좌표"], r)) for r in ADDR_DICT]}
+with open(OUT / "도로명주소사전_가상_주소DB형식.txt", "w", encoding="cp949") as f:   # 실제 주소DB처럼 머리글 없는 | 구분 · CP949
+    for r in ADDR_DICT:
+        f.write("|".join(str(v) for v in [r[0], r[1], r[2], r[3], r[4], "", r[5], r[6], r[7], r[8], "", r[9], r[10]]) + "\n")
 json.dump(bundle, open(HERE / "sample_data.json", "w", encoding="utf-8"), ensure_ascii=False,
           separators=(",", ":"), default=enc)
