@@ -6,3 +6,6 @@ node_modules/
 __pycache__/
 .DS_Store
 ~$*
+
+# 담당자가 직접 올린 원본 양식은 저장소에 두지 않음
+*수정본양식*.xlsx
