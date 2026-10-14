@@ -20,6 +20,7 @@
 """
 import argparse
 import csv
+import json
 import os
 import statistics
 import subprocess
@@ -177,10 +178,35 @@ def aggregate(recs, kind, bjd, exclude_direct):
     return rows, miss
 
 
+try:   # 현행 시군구코드 → 행정구역 개편 전 코드 (예: 12240 → 29140, 41595 → 41590)
+    OLD = json.loads((HERE / "geo_data.json").read_text(encoding="utf-8"))["bjd"]["old"]
+except Exception:  # noqa: BLE001
+    OLD = {}
+KEY_FILE = HERE.parent / "인증키_data.go.kr.txt"   # 여기에 붙여 넣은 키를 읽는다 (저장소에는 올라가지 않음)
+
+
+def read_key_file(path):
+    try:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def write_out(out, out_rows):
+    with open(out, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.DictWriter(f, fieldnames=["기준년월", "법정동코드", "시도", "시군구", "읍면동", "건물유형", "평균가격", "단위", "표본수", "출처"])
+        w.writeheader()
+        w.writerows(out_rows)
+
+
 def run(args):
-    key = args.key or os.environ.get("DATA_GO_KR_KEY")
+    key = args.key or os.environ.get("DATA_GO_KR_KEY") or read_key_file(args.key_file)
     if not key:
-        sys.exit("인증키가 필요합니다: --key 또는 DATA_GO_KR_KEY")
+        sys.exit(f"인증키가 없습니다. '{Path(args.key_file).name}' 파일의 # 줄 아래에 data.go.kr 일반 인증키를 붙여 넣고 저장하세요.")
     sggs = [s.strip() for s in (args.sgg or "").split(",") if s.strip()]
     if args.sgg_file:
         sggs += [l.strip()[:5] for l in Path(args.sgg_file).read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -195,14 +221,18 @@ def run(args):
         for lawd in sggs:
             for ym in months(args.frm, args.to):
                 page, got, recs = 1, 0, []
-                while True:
-                    items, total = parse(fetch(key, path, lawd, ym, page))
-                    recs += to_records(items, kind, lawd)
-                    got += len(items)
-                    if got >= total or not items:
+                for q in [lawd] + [o for o in OLD.get(lawd, []) if o != lawd]:   # 신설 코드로 0건이면 옛 코드로 재조회
+                    page = 1
+                    while True:
+                        items, total = parse(fetch(key, path, q, ym, page))
+                        recs += to_records(items, kind, lawd)
+                        got += len(items)
+                        if got >= total or not items:
+                            break
+                        page += 1
+                        time.sleep(args.sleep)
+                    if got:
                         break
-                    page += 1
-                    time.sleep(args.sleep)
                 for r in recs:
                     r["ym"] = r["ym"] or ym
                 rows, miss = aggregate(recs, kind, bjd, args.exclude_direct)
@@ -210,11 +240,9 @@ def run(args):
                 misses |= miss
                 print(f"{label} {lawd} {ym}: 거래 {got}건 → 동 {len(rows)}곳")
                 time.sleep(args.sleep)
+            write_out(args.out, out_rows)          # 시군구마다 중간 저장 — 도중에 멈춰도 받은 만큼은 남음
     out = Path(args.out)
-    with open(out, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=["기준년월", "법정동코드", "시도", "시군구", "읍면동", "건물유형", "평균가격", "단위", "표본수", "출처"])
-        w.writeheader()
-        w.writerows(out_rows)
+    write_out(out, out_rows)
     print(f"저장: {out}  ({len(out_rows)}행)")
     if misses:
         print("법정동코드를 찾지 못한 동(이름으로 연결됨):", ", ".join(sorted(misses)[:20]))
@@ -258,6 +286,7 @@ def selftest():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--key")
+    ap.add_argument("--key-file", default=str(KEY_FILE), help="인증키를 적어 둔 파일 (기본: 시스템 폴더의 인증키_data.go.kr.txt)")
     ap.add_argument("--sgg", help="시군구코드 5자리, 쉼표 구분 (예: 11710,41135)")
     ap.add_argument("--sgg-file", help="한 줄에 시군구코드 하나")
     ap.add_argument("--from", dest="frm", default=None, help="시작 계약년월 YYYYMM")
