@@ -34,6 +34,9 @@ def compact_sample(raw):
     """{ym:{sheet:[rec]}} → {ym:{sheet:{c:[컬럼], r:[[값]]}}} (용량 축소)"""
     out = {}
     for ym, sheets in raw.items():
+        if ym == "_truth":          # 표본 검수용 정답표 {관리번호#순번: 법정동코드} 는 그대로
+            out[ym] = sheets
+            continue
         out[ym] = {}
         for name, recs in sheets.items():
             cols = list(dict.fromkeys(k for r in recs for k in r))

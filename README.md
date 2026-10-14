@@ -49,6 +49,16 @@ python3 tools/chat_server.py             # → http://localhost:8800
 python3 tools/collect_rtms.py --key 공공데이터포털키 --sgg 11710,41135 --from 202609 --to 202609
 ```
 
+## 인수시험 (상세기획서 v1.1 시제품 완료 기준)
+
+'인수시험' 탭에서 **인수시험 실행**을 누르면 시제품 완료 게이트 G1~G5와 대시보드 기능 체크리스트 C1~C10을 지금 기준월 데이터로 자동 판정합니다.
+- 지도를 직접 조작합니다: 검색, 필터, 시도→시군구, 줌, 현 지도 영역, 목록 클릭, 집계표 정렬.
+- 그 결과를 통합테이블(csv)에서 따로 계산한 피벗·산식 값과 대조합니다.
+- 오류 5건을 넣은 시험 데이터로 점검 기능을, 3,000건 데이터로 표시 시간을 확인합니다.
+- **결과표(xlsx)**에 판정결과·검산표·표본검수·기능시험기록·성능 시트가 담겨 증빙으로 쓸 수 있습니다.
+
+운영 전환 기준(4-4: 실데이터 원천 대사, 제공부서 확인, 유관부서 시연, 정보보호 검토, 실 기준월 2개월 운영)은 이 시험 범위가 아니며, 내부망 반입 후 따로 판정합니다. 외부 요청 0건(G5-1)은 내부망판 html에서 배경을 '경계지도(내장)'로 두고 실행해야 판정됩니다.
+
 ## 폴더
 
 | 경로 | 내용 |
@@ -58,7 +68,9 @@ python3 tools/collect_rtms.py --key 공공데이터포털키 --sgg 11710,41135 -
 | `tools/prep_geo.py`, `tools/prep_bjd.py`, `tools/data/` | 행정구역 경계·대표점, 법정동코드표(2026.10.14)와 옛 코드 변환표 |
 | `tools/collect_rtms.py` | 실거래가 수집 → 동 가격 프록시 csv (`--selftest`로 점검) |
 | `tools/chat_server.py`, `api/chat.js` | AI 질문 중계 (로컬·사내 / Vercel) |
-| `tools/make_sample_v2.py`, `tools/utmk.py` | 샘플 생성(실제 주소 + 가상 금액), UTM-K↔위경도 변환 |
+| `tools/make_sample_v2.py`, `tools/utmk.py` | 샘플 생성(실제 주소 + 가상 금액, 표본 검수용 정답표 포함), UTM-K↔위경도 변환 |
+| `tools/make_template_v2.py` | 담당자 수정본 → 표준 양식 v2 |
+| `tools/docs/revise_prd.py` | 상세기획서 v1.0 → v1.1(시제품·운영 기준 분리) 생성 |
 | `tools/data/osm_buildings.json` | 샘플 26개 시군구의 실제 건물 주소·좌표 (© OpenStreetMap 기여자, ODbL) |
 | `tools/data/서울_법정동경계_2015.json` | 서울 법정동 경계 (southkorea/seoul-maps, 도로명주소 2015) — 샘플 건물의 법정동 판정용 |
 | `샘플데이터/` | 로우데이터 양식, 실제 주소 더미 로우데이터 2개월(도로명주소만 입력), OSM 기반 시험용 주소사전(주소DB 형식), 가상 KB 시계열, 가상 동 프록시 |

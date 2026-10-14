@@ -119,7 +119,7 @@ def osm_pool(reg):
         nm = b.get("name") or ""
         if not re.search(r"[가-힣]{2,}", nm) or re.fullmatch(r"[0-9A-Za-z가-힣\s-]*\d+\s*동", nm):
             nm = ""                                    # '102', '107동' 같은 동 번호는 단지명으로 쓰지 않음
-        b = dict(b, name=nm)
+        b = dict(b, name=nm, street=re.sub(r"\s*\([^)]*\)", "", b["street"]).strip())   # OSM 영문 병기 '(Supung-ro …)' 제거
         kind = ("오피스텔" if "오피스텔" in nm else "연립" if b["b"] in ("residential", "terrace") or re.search(r"빌라|맨션|빌$|다세대|연립|하우스", nm)
                 else "아파트" if b["b"] == "apartments" else "단독" if b["b"] in ("house", "detached") else "상업")
         out.append(dict(b, main=int(m.group(1)), subn=int(m.group(2) or 0), code=ld[0], emd=ld[1], kind=kind))
@@ -319,6 +319,14 @@ else:
             n = random.randint(301, 400)
             x, y = to_utmk(*next((reg["lat"], reg["lng"]) for reg in REGIONS if reg["sgg"][:4] == code[:4] or reg["sgg"] in BJ["old"].get(code[:5], [])))
             ADDR_DICT.append([code[:5], code, *BJ["s"][code[:5]][:2], next(n2 for t, n2 in BJE[code[:5]] if code[:5] + t == code), road, 0, n, 0, round(x + random.uniform(-300, 300), 2), round(y + random.uniform(-300, 300), 2)])
+# 표본 검수용 정답: 주소를 만든 실제 건물의 법정동코드 (주소정제 결과와 대조 · 인수시험 G2)
+TRUTH = {}
+for sheet in DATA_SHEETS:
+    for r in data[sheet]:
+        if r.get("BJD_CD") and r["EXPO_ID"] not in ("LN-0030", "LN-0031", "LN-0032"):
+            for idk in (r.get("EXPO_ID"), r.get("SRC_NO")):
+                if idk:
+                    TRUTH[f'{idk}#{r.get("RE_SEQ") or 1}'] = str(r["BJD_CD"])
 for sheet in DATA_SHEETS:
     for r in data[sheet]:
         if r["EXPO_ID"] in ("LN-0030", "LN-0031", "LN-0032"):
@@ -330,8 +338,8 @@ print("도로명주소 사전", "(OSM 실제 주소)" if OSM else "(가상)", le
 sep = copy.deepcopy(data)
 m9 = sep["1_주택담보대출"]
 b9 = {r["EXPO_ID"]: r for r in m9}
-b9["LN-0007"]["BJD_CD"] = "116801010"
-b9["LN-0007"]["REMARK"] = "[시연 오류] 법정동코드 9자리"
+b9["LN-0007"]["RE_TYPE"] = "주상복합"                 # [시연] 코드표에 없는 부동산유형 → '확인'
+b9["LN-0007"]["REMARK"] = "[시연] 코드표에 없는 부동산유형"
 b9["LN-0015"].pop("APPR_AMT")
 b9["LN-0015"]["REMARK"] = "[시연 오류] 평가금액 누락"
 extra = copy.deepcopy(b9["LN-0021"])
@@ -352,6 +360,8 @@ for r in aug["1_주택담보대출"]:
         if s:
             r["APPR_AMT"] = int(r["APPR_AMT"] * s["202608"] / s["202609"] / 1e6) * 1e6
         r["APPR_DT"] = datetime(2026, 8, 31)
+a40 = next(r for r in aug["1_주택담보대출"] if r["EXPO_ID"] == "LN-0040")   # [시연] 전월 평가금액이 35% 높았던 건 → 이상치(평가금액·LTV 급변)
+a40["APPR_AMT"] = int(a40["APPR_AMT"] * 1.35 / 1e6) * 1e6
 for r in aug["3_주택연금"]:
     r["PAID_CUM"] -= r["MONTHLY_PAY"]
     r["INT_CUM"] = int(r["INT_CUM"] * 0.97)
@@ -361,12 +371,35 @@ for r in aug["3_주택연금"]:
 OUT.mkdir(exist_ok=True)
 
 
+TPL = OUT / "부동산통합_로우데이터_양식_v2.xlsx"     # 표준 양식 v2 (make_template_v2.py, 담당자 수정본 기준)
+_tpl = load_workbook(TPL) if TPL.exists() else None
+KEEP = {s: set(filter(None, codes(_tpl[s]))) for s in DATA_SHEETS} if _tpl else None
+
+
+def to_template(d):
+    """양식 v2 의 열만 남긴다. 주택연금 대출잔액은 누계 합으로 채움(양식에 누계 열이 없음)"""
+    if not KEEP:
+        return d
+    out = {}
+    for s in DATA_SHEETS:
+        recs = []
+        for r in d[s]:
+            r = dict(r)
+            if s == "3_주택연금":
+                r["EXPO_AMT"] = int(r.get("PAID_CUM", 0) + r.get("INT_CUM", 0) + r.get("FEE_CUM", 0))
+            recs.append({k: v for k, v in r.items() if k in KEEP[s]})
+        out[s] = recs
+    return out
+
+
 def write(ws, recs):
+    from openpyxl.styles import Font
     cs = codes(ws)
     for row in ws.iter_rows(min_row=4, max_row=ws.max_row):
         for c in row:
             if not str(c.value or "").startswith("="):
                 c.value = None
+            c.font = Font()
     for i, rec in enumerate(recs):
         for j, code in enumerate(cs, start=1):
             if code in rec:
@@ -374,8 +407,9 @@ def write(ws, recs):
 
 
 bundle = {}
+aug, sep = to_template(aug), to_template(sep)
 for ym, d in (("202608", aug), ("202609", sep)):
-    wb = load_workbook(SRC)
+    wb = load_workbook(TPL if _tpl else SRC)
     for s in DATA_SHEETS:
         write(wb[s], d[s])
     pr = price_rows(ym)
@@ -479,6 +513,7 @@ def enc(o):
 
 
 bundle["_px"] = {"dong": dong}
+bundle["_truth"] = TRUTH
 bundle["_addr"] = {"rows": [dict(zip(["시군구코드", "법정동코드", "시도명", "시군구명", "법정읍면동명", "도로명", "지하여부", "건물본번", "건물부번", "X좌표", "Y좌표"], r)) for r in ADDR_DICT]}
 DICT_NAME = "도로명주소사전_OSM시험용_주소DB형식.txt" if OSM else "도로명주소사전_가상_주소DB형식.txt"
 for old in OUT.glob("도로명주소사전_*_주소DB형식.txt"):

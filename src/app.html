@@ -238,6 +238,27 @@ textarea.report{width:100%;min-height:330px;border:1px solid var(--line);border-
 .guide ol,.guide ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
 code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4px}
 .spark{display:block;width:100%;height:120px}
+/* 데이터 흐름 도식 */
+svg.flow{display:block;width:100%;min-width:920px;height:auto}
+.flow .nd rect{fill:var(--surface);stroke:var(--line-2);stroke-width:1.2}
+.flow .nd{cursor:pointer}
+.flow .nd:hover rect{fill:var(--surface-2)}
+.flow .nd.on rect{stroke:var(--accent);stroke-width:2.6;fill:var(--accent-soft)}
+.flow .nd .t1{font-size:13px;font-weight:700;fill:var(--text)}
+.flow .nd .t2,.flow .nd .t3{font-size:11px;fill:var(--text-2)}
+.flow .col{font-size:11px;font-weight:700;fill:var(--text-3);letter-spacing:.06em}
+.flow .eg{fill:none;stroke:var(--line-2);stroke-width:1.4}
+.flow .eg.on{stroke:var(--accent);stroke-width:2.6}
+.flow .eg.mn{stroke-dasharray:4 4;opacity:.6}
+.flow .eg.mn.on{opacity:1}
+.flow .el{font-size:10.5px;fill:var(--text-2);paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}
+.flow .el.on{fill:var(--accent);font-weight:700}
+.steps{display:flex;flex-direction:column;gap:0;border-left:3px solid var(--accent);margin-left:8px}
+.step{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.step b{font-size:12.5px}
+.step .d{font-size:12.5px;color:var(--text-2)}
+.step .d code{font-size:11.5px}
+@media (max-width:767px){.step{grid-template-columns:minmax(0,1fr)}}
 
 /* AI 질문 패널 */
 .chat{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:1600;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -276,6 +297,17 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
   .bar-row{grid-template-columns:92px minmax(0,1fr) 70px}
   .sl{grid-template-columns:110px minmax(0,1fr) 50px}
 }
+#printArea{display:none}
+@media print{
+  body>*:not(#printArea){display:none!important}
+  body{background:#fff!important}
+  #printArea{display:block!important;color:#000;font:11pt/1.55 "Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+  #printArea h1{font-size:16pt;margin:0 0 4pt} #printArea h2{font-size:12.5pt;margin:14pt 0 5pt;border-bottom:1px solid #999}
+  #printArea table{border-collapse:collapse;width:100%;font-size:9pt;page-break-inside:auto} #printArea tr{page-break-inside:avoid}
+  #printArea th,#printArea td{border:1px solid #bbb;padding:2pt 5pt;text-align:right} #printArea th{background:#eee} #printArea .l{text-align:left}
+  #printArea p{margin:2pt 0} #printArea .muted{color:#555;font-size:9pt}
+}
+.tres td.ok{color:var(--ok);font-weight:600}.tres td.ng{color:var(--crit);font-weight:700}.tres td.na{color:var(--text-3)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -287,10 +319,13 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
       <button role="tab" data-v="conc" aria-selected="false">집중도·비교</button>
       <button role="tab" data-v="stress" aria-selected="false">스트레스</button>
       <button role="tab" data-v="ews" aria-selected="false">조기경보</button>
+      <button role="tab" data-v="risk" aria-selected="false">개별 위험</button>
       <button role="tab" data-v="dong" aria-selected="false">동 가격</button>
       <button role="tab" data-v="qa" aria-selected="false">점검·주소정제</button>
       <button role="tab" data-v="data" aria-selected="false">데이터·내보내기</button>
       <button role="tab" data-v="guide" aria-selected="false">안내</button>
+      <button role="tab" data-v="flow" aria-selected="false">데이터 흐름</button>
+      <button role="tab" data-v="test" aria-selected="false">인수시험</button>
     </nav>
     <div class="ctl">
       <span class="pill warn" id="sampleBadge" hidden>가상 샘플</span>
@@ -403,6 +438,15 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
       </div>
     </div></section>
 
+    <!-- ===================== 개별 위험 ===================== -->
+    <section class="view" id="v-risk" role="tabpanel" hidden><div class="page">
+      <div class="page-h"><div><h2>개별 위험 관리</h2><p>주택연금 잔액이 주택가격을 넘는 예상 시점, 평가가 오래됐거나 지수 변동이 커서 다시 평가해야 할 담보, 전월 대비 값이 급하게 바뀐 이상치를 모아 봅니다. 행을 누르면 지도에서 해당 물건을 엽니다. 기준값은 데이터·내보내기 → 설정에서 바꿉니다.</p></div></div>
+      <div class="tiles" id="rkTiles"></div>
+      <div class="card"><h3>주택연금 예상 교차시점 <small id="rkCrossNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkCrossT"></table></div></div>
+      <div class="card"><h3>재평가 대상 <small id="rkReapNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkReapT"></table></div></div>
+      <div class="card"><h3>이상치 — 전월 대비 급변 <small id="rkAnomNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkAnomT"></table></div></div>
+    </div></section>
+
     <!-- ===================== 동 가격 ===================== -->
     <section class="view" id="v-dong" role="tabpanel" hidden><div class="page">
       <div class="page-h"><div><h2>동 단위 가격 프록시</h2><p>법정동 × 건물유형별 평균가격(확정 시세 아님)으로 만든 동 지수입니다. 표본이 충분한 동은 시군구 KB 지수와 신뢰도 가중으로 섞어 지수조정 LTV·스트레스·하락지역 판단에 반영하고, 부족한 동은 시군구 지수를 그대로 씁니다.</p></div>
@@ -454,6 +498,7 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
         <div class="card"><h3>내보내기</h3>
           <div style="display:flex;flex-direction:column;gap:10px">
             <div class="filters"><button class="btn pri" id="xXlsx">분기보고 패키지(xlsx)</button><span class="muted">통합테이블 · 지역집계 · 조기경보 · 스트레스 · 점검사항</span></div>
+            <div class="filters"><button class="btn pri" id="xPdf">분기 리포트 PDF</button><button class="btn" id="xHtml">리포트 html 저장</button><span class="muted">인쇄 창에서 'PDF로 저장'을 고르세요</span></div>
             <div class="filters"><button class="btn" id="xCsv">통합테이블(csv)</button><button class="btn" id="xCsvCopy">csv 복사</button><span class="muted">집중위험 산출·BI 연계용 표준 컬럼</span></div>
             <div class="note">저장 확인 창이 뜨면 승인하세요. 파일 저장이 막힌 화면에서는 'csv 복사'나 아래 보고서의 '복사'를 쓰면 됩니다.</div>
           </div></div>
@@ -468,6 +513,27 @@ code{font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4p
 
     <!-- ===================== 안내 ===================== -->
     <section class="view" id="v-guide" role="tabpanel" hidden><div class="page"><div class="guide" id="guide"></div></div></section>
+
+    <!-- ===================== 데이터 흐름 ===================== -->
+    <section class="view" id="v-flow" role="tabpanel" hidden><div class="page">
+      <div class="page-h"><div><h2>데이터가 지도에 오기까지</h2><p>입력한 자료들이 어떤 키로 서로 이어져 지도와 각 화면에 표시되는지 보여줍니다. 칸 안의 숫자는 지금 기준월 데이터의 실제 건수이고, 칸을 누르면 해당 화면으로 이동합니다.</p></div>
+        <div class="lgd"><span class="k"><i style="background:var(--accent)"></i>아래에서 고른 한 건의 경로</span></div></div>
+      <div class="card"><div class="tw"><svg id="flowSvg" class="flow" viewBox="0 0 1150 600" role="img" aria-label="데이터 연결 도식"></svg></div></div>
+      <div class="card"><h3>한 건 따라가기 <small>관리번호나 주소 일부를 넣으세요</small></h3>
+        <div class="filters" style="margin-bottom:10px"><input type="search" id="flowQ" placeholder="예: LN-0002 · 포은대로 · 문정동" aria-label="관리번호 또는 주소" style="min-width:240px"><button class="btn pri" id="flowGo">따라가기</button><button class="btn" id="flowRand">아무 건이나</button><span class="muted" id="flowMsg"></span></div>
+        <div id="flowTrace"></div></div>
+      <div class="card"><h3>연결 키 정리</h3><div class="tw"><table class="t" id="flowKeys"></table></div></div>
+    </div></section>
+
+    <!-- ===================== 인수시험 ===================== -->
+    <section class="view" id="v-test" role="tabpanel" hidden><div class="page">
+      <div class="page-h"><div><h2>인수시험 (시제품 완료 기준)</h2><p>상세기획서 v1.1의 시제품 완료 게이트(G1~G5)와 대시보드 기능 체크리스트(C1~C10)를 지금 기준월 데이터로 자동 실행합니다. 지도 화면을 직접 조작해 확인하므로 실행 중에는 화면이 잠시 바뀝니다. 판정 근거(검산표 · 표본 검수표 · 측정값)는 결과표(xlsx)로 내보냅니다.</p></div>
+        <div class="filters"><button class="btn pri" id="tRun">인수시험 실행</button><button class="btn" id="tExp" disabled>결과표(xlsx)</button></div></div>
+      <div class="note" id="tMsg">실행 버튼을 누르면 약 10~30초 걸립니다. 운영 전환 기준(4-4, 실데이터·유관부서 절차)은 이 시험의 범위가 아닙니다.</div>
+      <div class="tiles" id="tTiles"></div>
+      <div class="card"><h3>판정 결과 <small id="tWhen"></small></h3><div class="tw"><table class="t" id="tT"></table></div></div>
+      <div class="card" id="tDetail" hidden></div>
+    </div></section>
   </div>
 </div>
 <aside class="chat" id="chat" hidden aria-label="AI 질문">
@@ -500,12 +566,14 @@ const SRC = [
 ];
 const SRC_BY = Object.fromEntries(SRC.map(s=>[s.k,s]));
 const SHEET_MATCH = [["1_주택담보대출",/주택담보|주담대/],["2_투자부동산",/투자부동산|투자/],["3_주택연금",/주택연금|역모기지|연금/],["4_가격지표",/가격지표|가격지수/]];
+/* 필수항목 = 표준 양식 v2(담당자 수정본)의 노랑 칸. 주택연금은 계약번호가 관리번호, 대출잔액은 직접 입력(누계 열이 있으면 합산도 허용) */
 const REQUIRED = {
   "주택담보대출":["BASE_YM","EXPO_ID","SRC_NO","CPTY_ID","CPTY_TYPE","EXEC_DT","MAT_DT","BAL_AMT","MORT_AMT","LIEN_RANK","DLQ_DAYS","ASSET_QLTY","RE_SEQ","RE_TYPE","ROAD_ADDR","APPR_AMT","APPR_SRC","APPR_DT","ALLOC_RATIO"],
-  "투자부동산":["BASE_YM","EXPO_ID","SRC_NO","ASSET_NM","ACCT","HOLD_TYPE","SHARE_RATIO","EXEC_DT","BOOK_AMT","FV_AMT","RE_SEQ","RE_TYPE","ROAD_ADDR","APPR_AMT","APPR_SRC","APPR_DT"],
-  "주택연금":["BASE_YM","EXPO_ID","SRC_NO","CPTY_ID","AGE_BAND","PAY_TYPE","PAY_STATUS","EXEC_DT","INIT_APPR_AMT","MONTHLY_PAY","LIMIT_AMT","PAID_CUM","INT_CUM","RE_SEQ","RE_TYPE","ROAD_ADDR","APPR_AMT","APPR_SRC","APPR_DT"],
+  "투자부동산":["BASE_YM","EXPO_ID","ASSET_NM","ACCT","HOLD_TYPE","SHARE_RATIO","EXEC_DT","BOOK_AMT","FV_AMT","RE_SEQ","RE_TYPE","ROAD_ADDR","APPR_AMT","APPR_SRC","APPR_DT"],
+  "주택연금":["BASE_YM","SRC_NO","PAY_TYPE","EXEC_DT","INIT_APPR_AMT","MONTHLY_PAY","LIMIT_AMT","RE_TYPE","ROAD_ADDR","APPR_AMT","APPR_SRC","APPR_DT","EXPO_AMT"],
 };
-const FIELD_KR = {BASE_YM:"기준년월",EXPO_ID:"관리번호",SRC_NO:"원천식별번호",CPTY_ID:"고객번호",CPTY_TYPE:"차주구분",EXEC_DT:"실행·취득·가입일",MAT_DT:"만기일",BAL_AMT:"대출잔액",MORT_AMT:"근저당설정금액",LIEN_RANK:"담보순위",DLQ_DAYS:"연체일수",ASSET_QLTY:"건전성분류",RE_SEQ:"부동산순번",RE_TYPE:"부동산유형",ROAD_ADDR:"도로명주소",APPR_AMT:"평가금액",APPR_SRC:"평가구분",APPR_DT:"평가일",ALLOC_RATIO:"배분비율",ASSET_NM:"자산명",ACCT:"계정구분",HOLD_TYPE:"보유형태",SHARE_RATIO:"지분율",BOOK_AMT:"장부금액",FV_AMT:"공정가치",AGE_BAND:"가입자연령대",PAY_TYPE:"지급방식",PAY_STATUS:"지급상태",INIT_APPR_AMT:"가입시주택가격",MONTHLY_PAY:"월지급금",LIMIT_AMT:"대출한도",PAID_CUM:"지급누계",INT_CUM:"이자누계"};
+const hasField = (r, k) => r[k]!=null && r[k]!=="" || (k==="EXPO_AMT" && r.PAID_CUM!=null && r.PAID_CUM!=="");
+const FIELD_KR = {BASE_YM:"기준년월",EXPO_ID:"관리번호",SRC_NO:"계좌·계약번호",EXPO_AMT:"대출잔액",CPTY_ID:"고객번호",CPTY_TYPE:"차주구분",EXEC_DT:"실행·취득·가입일",MAT_DT:"만기일",BAL_AMT:"대출잔액",MORT_AMT:"근저당설정금액",LIEN_RANK:"담보순위",DLQ_DAYS:"연체일수",ASSET_QLTY:"건전성분류",RE_SEQ:"부동산순번",RE_TYPE:"부동산유형",ROAD_ADDR:"도로명주소",APPR_AMT:"평가금액",APPR_SRC:"평가구분",APPR_DT:"평가일",ALLOC_RATIO:"배분비율",ASSET_NM:"자산명",ACCT:"계정구분",HOLD_TYPE:"보유형태",SHARE_RATIO:"지분율",BOOK_AMT:"장부금액",FV_AMT:"공정가치",AGE_BAND:"가입자연령대",PAY_TYPE:"지급방식",PAY_STATUS:"지급상태",INIT_APPR_AMT:"가입시주택가격",MONTHLY_PAY:"월지급금",LIMIT_AMT:"대출한도",PAID_CUM:"지급누계",INT_CUM:"이자누계"};
 const CODES = {
   RE_TYPE:["아파트","연립·다세대","단독·다가구","오피스텔","오피스","상가","물류","호텔","토지","기타"],
   ASSET_QLTY:["정상","요주의","고정","회수의문","추정손실"],
@@ -528,6 +596,7 @@ const DEFAULTS = {
   ewsWatchYoy:-3, ewsStreak:3, ewsShare:3, ewsLtv:80, ewsAlertYoy:-10,
   hpHigh:60, ltvHigh:80, dispose:10, vworldKey:"",
   idxMode:"dong", pxMinN:10, pxK:10, pxWindow:3, dongPropagate:50,
+  hpRate:4.5, hpHpi:0, hpHorizon:30, reapMonths:36, reapChg:10, anomAppr:20, anomLtv:10, anomKm:3,
   presets:[
     {k:"경미", h:10, c:5,  scope:"all"},
     {k:"중간", h:20, c:10, scope:"all"},
@@ -713,9 +782,9 @@ function parseRoad(addr){
   const t = String(addr||"").replace(/\([^)]*\)/g," ").replace(/,/g," ").replace(/\s+/g," ").trim().split(" ");
   for(let i=0; i<t.length; i++){
     let road = t[i], j = i+1, inl = null;
-    const glued = road.match(/^([가-힣A-Za-z0-9·.]*[가-힣](?:로|길))(\d+)(?:-(\d+))?$/);
+    const glued = road.match(/^([가-힣A-Za-z0-9·.]*[가-힣]\d*(?:로|길))(\d+)(?:-(\d+))?$/);
     if(glued){ road = glued[1]; inl = {main:+glued[2], sub:+(glued[3]||0)}; }
-    if(!/[가-힣](로|길)$/.test(road) && !/[가-힣]로\d+(번)?길$/.test(road)) continue;
+    if(!/[가-힣]\d*(로|길)$/.test(road) && !/[가-힣]\d*로\d+(번)?길$/.test(road)) continue;   // 신봉2로 · 시장1길 · 와우산로35길
     if(/^\d+(번)?길$/.test(t[j]||"")){ road += t[j]; j++; }
     let under = 0; if(t[j]==="지하"){ under = 1; j++; }
     const m = inl ? null : (t[j]||"").match(/^(\d+)(?:-(\d+))?(번지)?$/);
@@ -727,14 +796,15 @@ function parseRoad(addr){
 const ADS = {rows:[], idx:new Map(), road:new Map(), files:[], sample:false};
 let GEO_USE_ADS = true;
 const cityKey = cd => String(cd).slice(0,4);
+const roadKey = s => String(s||"").replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, "");   // 영문 병기 '(Supung-ro …)' · 공백 차이 무시
 function adsIndex(){
   ADS.idx = new Map(); ADS.road = new Map();
   ADS.rows.forEach((r,i) => {   // r = [시군구코드, 도로명, 본번, 부번, 법정동코드, 위도, 경도, 법정동명]
     const ck = cityKey(canonSgg(r[0])[0] || r[0]);
-    const k = `${ck}|${r[1]}|${r[2]}`;
+    const k = `${ck}|${roadKey(r[1])}|${r[2]}`;
     if(!ADS.idx.has(`${k}-${r[3]}`)) ADS.idx.set(`${k}-${r[3]}`, i);
     if(!ADS.idx.has(k)) ADS.idx.set(k, i);
-    const rk = `${ck}|${r[1]}`, prev = ADS.road.get(rk);
+    const rk = `${ck}|${roadKey(r[1])}`, prev = ADS.road.get(rk);
     ADS.road.set(rk, prev==null ? r[4] : prev===r[4] ? prev : "*");
   });
 }
@@ -743,10 +813,11 @@ function adsLookup(cands, pr){
   const keys = [...new Set(cands.flatMap(c => [c, ...(BJ.s[c]?.[4] ? sggKids(c) : [])]).map(cityKey))];
   for(const ck of keys){
     if(pr.main!=null){
-      let i = ADS.idx.get(`${ck}|${pr.road}|${pr.main}-${pr.sub}`); if(i==null) i = ADS.idx.get(`${ck}|${pr.road}|${pr.main}`);
+      const rd = roadKey(pr.road);
+      let i = ADS.idx.get(`${ck}|${rd}|${pr.main}-${pr.sub}`); if(i==null) i = ADS.idx.get(`${ck}|${rd}|${pr.main}`);
       if(i!=null){ const r = ADS.rows[i]; return {bjd:r[4], lat:r[5], lng:r[6], name:r[7], level:"건물"}; }
     }
-    const rb = ADS.road.get(`${ck}|${pr.road}`);
+    const rb = ADS.road.get(`${ck}|${roadKey(pr.road)}`);
     if(rb && rb!=="*") return {bjd:rb, level:"도로"};
   }
   return null;
@@ -767,15 +838,17 @@ function parseWorkbook(wb){
   const out = {};
   for(const name of wb.SheetNames){
     const key = sheetKey(name); if(!key || out[key]) continue;
-    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null, blankrows:false});
-    let h = aoa.findIndex((r,i) => i < 10 && r.some(c => /(^|\n)\s*(EXPO_ID|SGG_CD)\s*$/.test(String(c??""))));
+    const ws = wb.Sheets[name];
+    for(const a in ws) if(a[0]!=="!" && ws[a]?.t==="e") delete ws[a];      // #REF! 같은 수식 오류 칸은 빈 칸으로
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null, blankrows:false});
+    let h = aoa.findIndex((r,i) => i < 10 && r.some(c => /(^|\n)\s*(EXPO_ID|SRC_NO|ROAD_ADDR|SGG_CD)\s*$/.test(String(c??""))));
     if(h < 0) continue;
     const codes = aoa[h].map(c => c == null ? null : String(c).split("\n").pop().trim());
     const recs = [];
     for(const row of aoa.slice(h+1)){
       const r = {};
       codes.forEach((k,i) => { const v=row[i]; if(k && v!=null && v!=="" && !(typeof v==="string" && v.startsWith("="))) r[k]=v; });
-      if(r.EXPO_ID || r.SGG_CD) recs.push(r);
+      if(r.EXPO_ID || r.SRC_NO || r.ROAD_ADDR || r.SGG_CD) recs.push(r);
     }
     out[key] = recs;
   }
@@ -870,7 +943,7 @@ function processSnapshot(raw, meta, dict){
   const issues = [];
   const add = (lv, cat, src, id, msg) => issues.push({lv, cat, src, id, msg});
   const usePx = !PXS.sample || meta.sample;
-  GEO_USE_ADS = !ADS.sample || !!meta.sample;   // 가상 주소사전은 가상 스냅샷에만   // 가상 가격자료는 가상 스냅샷에만 적용
+  GEO_USE_ADS = true;   // 시험용 사전도 실제 주소(OSM)라 올린 파일에도 적용 — 공식 주소DB를 올리면 대체됨   // 가상 가격자료는 가상 스냅샷에만 적용
   const P = buildPrices([...(raw["4_가격지표"]||[]), ...(usePx ? PXS.idx : [])]);   // 저장소 값이 같은 키를 덮어씀
   const DG = buildDong([...(raw["5_동가격프록시"]||[]), ...(usePx ? PXS.dong : [])]);
   const SET = APP.set, useDong = SET.idxMode==="dong" && DG.m.size;
@@ -879,18 +952,18 @@ function processSnapshot(raw, meta, dict){
   const alloc = new Map(), seen = new Set();
   for(const S of SRC){
     for(const r of raw[S.sheet] || []){
-      const id = String(r.EXPO_ID||"").trim();
+      const id = String(r.EXPO_ID||r.SRC_NO||"").trim();
       const ym = normYm(r.BASE_YM); yms[ym] = (yms[ym]||0) + 1;
       // 필수항목
-      const miss = REQUIRED[S.k].filter(k => r[k]==null || r[k]==="");
+      const miss = REQUIRED[S.k].filter(k => !hasField(r, k));
       if(miss.length) add("오류","필수항목",S.k,id,`필수항목 누락: ${miss.map(k=>FIELD_KR[k]||k).join(", ")}`);
       // 코드값
       for(const [f,list] of Object.entries(CODES)) if(r[f]!=null && r[f]!=="" && !list.includes(String(r[f]).trim())) add("확인","코드값",S.k,id,`${FIELD_KR[f]||f} '${r[f]}'은(는) 코드표에 없음`);
-      if(!id.startsWith(S.pre)) add("확인","관리번호",S.k,id,`관리번호 접두어가 ${S.pre} 이 아님`);
+      if(r.EXPO_ID && !id.startsWith(S.pre)) add("확인","관리번호",S.k,id,`관리번호 접두어가 ${S.pre} 이 아님`);
       if(ym && ym.length!==6) add("오류","자릿수",S.k,id,`기준년월 '${r.BASE_YM}' 6자리 아님`);
       const seq = num(r.RE_SEQ) || 1, key = `${id}#${seq}`;
       if(seen.has(key)) add("오류","중복",S.k,id,`관리번호·부동산순번 중복 (${seq})`); seen.add(key);
-      if(S.k==="주택담보대출") alloc.set(id, (alloc.get(id)||0) + (num(r.ALLOC_RATIO)||0));
+      if(S.k==="주택담보대출") alloc.set(id, (alloc.get(id)||0) + (num(r.ALLOC_RATIO) ?? 1));
       rows.push(standardize(S.k, r, seq));
     }
   }
@@ -948,7 +1021,7 @@ function processSnapshot(raw, meta, dict){
 
 function standardize(src, r, seq){
   const appr = num(r.APPR_AMT);
-  const o = {id:String(r.EXPO_ID||"").trim(), seq, src, ym:normYm(r.BASE_YM), srcNo:r.SRC_NO??"",
+  const o = {id:String(r.EXPO_ID||r.SRC_NO||"").trim(), seq, src, ym:normYm(r.BASE_YM), srcNo:r.SRC_NO??"",
     name:String(r.RE_NM||r.ASSET_NM||""), type:String(r.RE_TYPE||"기타").trim(),
     addr:String(r.ROAD_ADDR||r.JIBUN_ADDR||"").trim(), jibun:String(r.JIBUN_ADDR||""), area:num(r.AREA_M2),
     appr, apprSrc:r.APPR_SRC||"", apprDt:iso(r.APPR_DT), remark:r.REMARK||"",
@@ -957,7 +1030,7 @@ function standardize(src, r, seq){
   if(src==="주택담보대출"){
     const bal = num(r.BAL_AMT)||0, al = num(r.ALLOC_RATIO);
     o.bal = bal; o.alloc = al; o.senior = num(r.SENIOR_AMT)||0; o.mort = num(r.MORT_AMT);
-    o.expo = Math.round(bal * (al ?? 0)); o.ltv = appr ? (o.senior + o.expo) / appr : null;
+    o.expo = Math.round(bal * (al ?? 1)); o.ltv = appr ? (o.senior + o.expo) / appr : null;
     o.qlty = String(r.ASSET_QLTY||"").trim(); o.dlq = num(r.DLQ_DAYS)||0; o.prod = r.PROD||""; o.cpty = r.CPTY_TYPE||"";
   } else if(src==="투자부동산"){
     const fv = num(r.FV_AMT), sh = num(r.SHARE_RATIO);
@@ -965,9 +1038,10 @@ function standardize(src, r, seq){
     o.expo = Math.round((fv||0) * (sh ?? 0)); o.gain = fv!=null && o.book!=null ? fv - o.book : null; o.ltv = null;
   } else {
     o.paid = num(r.PAID_CUM)||0; o.intc = num(r.INT_CUM)||0; o.fee = num(r.FEE_CUM)||0;
-    o.expo = Math.round(o.paid + o.intc + o.fee); o.ltv = appr ? o.expo / appr : null;
+    const cum = r.PAID_CUM!=null || r.INT_CUM!=null;               // 누계 열이 있으면 합산, 없으면 대출잔액 입력값
+    o.expo = Math.round(cum ? o.paid + o.intc + o.fee : (num(r.EXPO_AMT)||0)); o.ltv = appr ? o.expo / appr : null;
     o.init = num(r.INIT_APPR_AMT); o.apprChg = appr && o.init ? appr / o.init - 1 : null;
-    o.pay = r.PAY_TYPE||""; o.status = r.PAY_STATUS||""; o.age = r.AGE_BAND||""; o.limit = num(r.LIMIT_AMT);
+    o.pay = r.PAY_TYPE||""; o.status = r.PAY_STATUS||""; o.age = r.AGE_BAND||""; o.limit = num(r.LIMIT_AMT); o.mpay = num(r.MONTHLY_PAY)||0;
     o.mat = iso(r.MAT_DT);
   }
   return o;
@@ -1071,6 +1145,47 @@ function aggregate(rows, level, prices, base){
 }
 function hhi(map){ let h=0; for(const a of map.values()) h += a.share*a.share; return h; }
 
+/* 개별 위험 ① 주택연금 예상 교차시점: 잔액(월 이자 복리 + 월지급금, 대출한도에 닿으면 지급 중단)이
+   지수조정 주택가격(연 상승률 가정)을 넘는 첫 달. 이미 넘었으면 0개월, 가정 기간 안에 없으면 m = null */
+function crossPoint(r, base, st){
+  let B = r.expo || 0, V = r.adjVal || 0;
+  if(!V) return null;
+  if(B >= V) return {m:0, ym:base};
+  const i = (st.hpRate||0)/1200, g = Math.pow(1 + (st.hpHpi||0)/100, 1/12) - 1, P = r.status && r.status!=="지급중" ? 0 : (r.mpay||0), lim = r.limit || Infinity;
+  for(let m=1; m<=Math.round((st.hpHorizon||30)*12); m++){
+    B = B*(1+i) + (B < lim ? P : 0); V = V*(1+g);
+    if(B >= V) return {m, ym:ymAdd(base, m)};
+  }
+  return {m:null, ym:null};
+}
+const ymDiff = (a, b) => (+a.slice(0,4) - +b.slice(0,4))*12 + (+a.slice(4) - +b.slice(4));
+/* 개별 위험 ② 재평가 대상: 평가 후 경과기간 또는 평가월 이후 지수 변동이 기준 이상 */
+function reapReason(r, base, st){
+  if(!r.sggCd) return "";
+  const why = [], aym = ymOfIso(r.apprDt);
+  if(!r.appr) why.push("평가금액 없음");
+  else if(!aym) why.push("평가일 없음");
+  else { const age = ymDiff(base, aym); if(age >= st.reapMonths) why.push(`평가 후 ${age}개월`); }
+  if(r.src!=="투자부동산" && r.ratio!=null && Math.abs(r.ratio-1) >= st.reapChg/100) why.push(`평가 이후 지수 ${fmtChg(r.ratio-1)}`);
+  return why.join(" · ");
+}
+/* 개별 위험 ③ 이상치: 같은 관리번호·순번의 전월 값과 비교 */
+function detectAnomalies(rows, prevRows, st){
+  if(!prevRows) return null;
+  const pm = new Map(prevRows.map(p => [`${p.id}#${p.seq}`, p])), out = [];
+  for(const r of rows){
+    const p = pm.get(`${r.id}#${r.seq}`); if(!p) continue;
+    const why = [];
+    if(r.appr && p.appr && Math.abs(r.appr/p.appr-1) >= st.anomAppr/100) why.push(`평가금액 ${fmtWon(p.appr)} → ${fmtWon(r.appr)} (${fmtChg(r.appr/p.appr-1)})`);
+    if(r.adjLtv!=null && p.adjLtv!=null && Math.abs(r.adjLtv-p.adjLtv) >= st.anomLtv/100) why.push(`${r.src==="주택연금"?"잔액비율":"지수조정 LTV"} ${fmtPct(p.adjLtv)} → ${fmtPct(r.adjLtv)} (${fmtPp(r.adjLtv-p.adjLtv)})`);
+    if(p.expo > 0 && r.expo/p.expo-1 >= st.anomAppr/100) why.push(`익스포저 ${fmtWon(p.expo)} → ${fmtWon(r.expo)} (${fmtChg(r.expo/p.expo-1)})`);
+    if(r.sggCd && p.sggCd && r.sggCd!==p.sggCd) why.push(`시군구 ${p.sgg} → ${r.sgg}`);
+    else if(r.lat!=null && p.lat!=null && !/대표점/.test(r.geo+p.geo)){ const km = haversine(r.lat, r.lng, p.lat, p.lng); if(km >= st.anomKm) why.push(`좌표 ${km.toFixed(1)}km 이동`); }
+    if(why.length) out.push({r, p, why});
+  }
+  return out;
+}
+
 function derive(){
   const cur = APP.snaps[APP.cur]; if(!cur){ APP.D = null; return; }
   const cmp = APP.cmp && APP.snaps[APP.cmp] ? APP.snaps[APP.cmp] : null;
@@ -1115,8 +1230,9 @@ function derive(){
     a.ews = alert ? 3 : caution ? 2 : watch ? 1 : 0; a.why = why; a.sf = sfAmt;
     a.prev = cagg?.g.get(a.k) || null;
   }
-  rows.forEach(r => { r.ews = agg.g.get(r.sggCd)?.ews ?? 0; });
-  APP.D = {cur, cmp, rows, agg, cagg, midRes, mid, dong};
+  rows.forEach(r => { r.ews = agg.g.get(r.sggCd)?.ews ?? 0; r.cross = r.src==="주택연금" ? crossPoint(r, cur.ym, st) : null; r.reap = reapReason(r, cur.ym, st); });
+  const anom = detectAnomalies(rows, cmp?.rows, st);
+  APP.D = {cur, cmp, rows, agg, cagg, midRes, mid, dong, anom};
 }
 
 /* =====================================================================
@@ -1190,7 +1306,7 @@ function refresh(){
 }
 function renderView(){
   const v = APP.view;
-  ({map:()=>MAP.show(), conc:renderConc, stress:renderStress, ews:renderEws, dong:renderDong, qa:renderQa, data:renderData, guide:renderGuide})[v]?.();
+  ({map:()=>MAP.show(), conc:renderConc, stress:renderStress, ews:renderEws, risk:renderRisk, test:renderTest, dong:renderDong, qa:renderQa, data:renderData, guide:renderGuide, flow:renderFlow})[v]?.();
 }
 function go(v){
   APP.view = v;
@@ -1391,6 +1507,8 @@ const MAP = {
       <dt>${esc(r.sgg)} KB ${esc(r.sggType)}</dt><dd class="${chgCls(r.sggYoy)}">전년 ${fmtChg(r.sggYoy)}</dd>
       ${r.dong?`<dt>${esc(r.emd)} 동 프록시</dt><dd class="${chgCls(r.dong.yoy)}">전년 ${fmtChg(r.dong.yoy)} <span class="muted">표본 ${r.dong.n} · ${r.dong.cred?`가중 ${(r.dong.w*100).toFixed(0)}%`:"표본 부족"}</span></dd>`:""}
       ${r.dong && r.area && /㎡/.test(r.dong.unit||"") ? `<dt>동 평균가 × 면적</dt><dd>${fmtWon(r.dong.now*r.area)} <span class="muted">평가 대비 ${fmtChg(r.appr ? r.dong.now*r.area/r.appr-1 : null)}</span></dd>` : ""}
+      ${r.src==="주택연금"&&r.cross?`<dt>예상 교차시점</dt><dd>${crossLabel(r.cross)}</dd>`:""}
+      ${r.reap?`<dt>재평가 대상</dt><dd>${esc(r.reap)}</dd>`:""}
       <dt>조기경보</dt><dd>${ewsTag(r.ews)}</dd></dl>
       ${r.geo!=="건별"?`<div class="w">⚠ 좌표 미입력 — ${esc(r.geo)}에 표시</div>`:""}
       ${r.bjdHow&&r.bjdHow!=="원천"?`<div class="w">지역 분류: ${esc(r.bjdHow)}</div>`:""}</div>`;
@@ -2067,8 +2185,8 @@ function renderData(){
   $("#rTxt").value = APP.D ? reportText() : "";
   renderSettings();
 }
-const STD_COLS = [["ym","기준년월"],["id","관리번호"],["seq","부동산순번"],["src","원천구분"],["srcNo","원천식별번호"],["name","부동산명"],["type","부동산유형"],["addr","도로명주소"],["sido","시도"],["sgg","시군구"],["emd","읍면동"],["bjd","법정동코드"],["sggCd","시군구코드"],["bjdHow","지역부여방식"],["lat","위도"],["lng","경도"],["geo","좌표정확도"],["area","면적(㎡)"],["appr","평가금액"],["apprSrc","평가구분"],["apprDt","평가일"],["expo","익스포저"],["bal","대출잔액"],["alloc","배분비율"],["senior","선순위금액"],["mort","근저당설정금액"],["fv","공정가치"],["book","장부금액"],["share","지분율"],["gain","평가손익"],["paid","지급누계"],["intc","이자누계"],["fee","기타비용누계"],["ltv","LTV(평가시점)"],["idxLevel","지수구분"],["ratio","지수조정계수"],["adjVal","지수조정가치"],["adjLtv","지수조정LTV"],["qlty","건전성"],["dlq","연체일수"],["mat","만기일"],["yoy","지역지수 전년대비"],["mom","지역지수 전월대비"],["sggYoy","시군구KB 전년대비"],["dYoy","동프록시 전년대비"],["dN","동프록시 표본수"],["dW","동프록시 가중치"],["ews","조기경보등급"]];
-function stdRow(r){ return STD_COLS.map(([k]) => k==="ews" ? EWS[r.ews].name : k==="dYoy" ? (r.dong?.yoy!=null ? +r.dong.yoy.toFixed(6) : "") : k==="dN" ? (r.dong?.n ?? "") : k==="dW" ? (r.dong ? (r.dong.cred ? +r.dong.w.toFixed(4) : 0) : "") : k==="sggYoy" ? (r.sggYoy!=null ? +r.sggYoy.toFixed(6) : "") : (typeof r[k]==="number" && ["ltv","adjLtv","ratio","yoy","mom","alloc","share"].includes(k)) ? +r[k].toFixed(6) : r[k] ?? ""); }
+const STD_COLS = [["ym","기준년월"],["id","관리번호"],["seq","부동산순번"],["src","원천구분"],["srcNo","원천식별번호"],["name","부동산명"],["type","부동산유형"],["addr","도로명주소"],["sido","시도"],["sgg","시군구"],["emd","읍면동"],["bjd","법정동코드"],["sggCd","시군구코드"],["bjdHow","지역부여방식"],["lat","위도"],["lng","경도"],["geo","좌표정확도"],["area","면적(㎡)"],["appr","평가금액"],["apprSrc","평가구분"],["apprDt","평가일"],["expo","익스포저"],["bal","대출잔액"],["alloc","배분비율"],["senior","선순위금액"],["mort","근저당설정금액"],["fv","공정가치"],["book","장부금액"],["share","지분율"],["gain","평가손익"],["paid","지급누계"],["intc","이자누계"],["fee","기타비용누계"],["ltv","LTV(평가시점)"],["idxLevel","지수구분"],["ratio","지수조정계수"],["adjVal","지수조정가치"],["adjLtv","지수조정LTV"],["qlty","건전성"],["dlq","연체일수"],["mat","만기일"],["yoy","지역지수 전년대비"],["mom","지역지수 전월대비"],["sggYoy","시군구KB 전년대비"],["dYoy","동프록시 전년대비"],["dN","동프록시 표본수"],["dW","동프록시 가중치"],["ews","조기경보등급"],["age","가입자연령대"],["cross","연금 예상교차시점"],["reap","재평가 사유"]];
+function stdRow(r){ return STD_COLS.map(([k]) => k==="ews" ? EWS[r.ews].name : k==="cross" ? (r.cross ? (r.cross.ym || "가정기간 내 없음") : "") : k==="dYoy" ? (r.dong?.yoy!=null ? +r.dong.yoy.toFixed(6) : "") : k==="dN" ? (r.dong?.n ?? "") : k==="dW" ? (r.dong ? (r.dong.cred ? +r.dong.w.toFixed(4) : 0) : "") : k==="sggYoy" ? (r.sggYoy!=null ? +r.sggYoy.toFixed(6) : "") : (typeof r[k]==="number" && ["ltv","adjLtv","ratio","yoy","mom","alloc","share"].includes(k)) ? +r[k].toFixed(6) : r[k] ?? ""); }
 function csvText(){
   const q = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
   return [STD_COLS.map(c=>c[1]).join(","), ...APP.D.rows.map(r => stdRow(r).map(q).join(","))].join("\r\n");
@@ -2086,6 +2204,9 @@ function exportXlsx(){
   const sc = APP.set.presets.map(p => ({p, r:runStress(D.rows, stressParams({h:p.h,c:p.c,d:APP.set.dispose,scope:p.scope,topN:p.topN,picked:new Set()}))}));
   add("스트레스", [["시나리오","주택하락률","상업용하락률","처분비용률","범위","주담대 담보부족","투자 평가손실","연금 담보부족","합계","LTV80초과 건","LTV100초과 건"], ...sc.map(({p,r})=>[p.k,p.h/100,p.c/100,APP.set.dispose/100,p.scope==="top"?`상위 ${p.topN}개 시군구`:"전국",Math.round(r.src["주택담보대출"].loss),Math.round(r.src["투자부동산"].loss),Math.round(r.src["주택연금"].loss),Math.round(r.total),r.ltv80.n,r.ltv100.n])]);
   add("점검사항", [["수준","분류","원천","관리번호","내용"], ...D.cur.issues.map(i=>[i.lv,i.cat,i.src,i.id,i.msg])]);
+  add("연금교차시점", [["계약번호","시도","시군구","읍면동","대출잔액","지수조정 주택가격","잔액비율","월지급금","대출한도","예상 교차시점","남은 개월"], ...D.rows.filter(r=>r.src==="주택연금"&&r.cross).sort((a,b)=>(a.cross.m??1e9)-(b.cross.m??1e9)).map(r=>[r.id,r.sido,r.sgg,r.emd,r.expo,Math.round(r.adjVal||0),r.adjLtv!=null?+r.adjLtv.toFixed(6):"",r.mpay,r.limit??"",r.cross.ym||"가정기간 내 없음",r.cross.m??""])]);
+  add("재평가대상", [["관리번호","원천","부동산명","시도","시군구","평가금액","평가일","지수조정계수","사유"], ...D.rows.filter(r=>r.reap).map(r=>[r.id,r.src,r.name,r.sido,r.sgg,r.appr??"",r.apprDt||"",r.ratio!=null?+r.ratio.toFixed(6):"",r.reap])]);
+  if(D.anom) add("이상치_전월대비", [["관리번호","부동산순번","원천","부동산명","시군구","사유"], ...D.anom.map(a=>[a.r.id,a.r.seq,a.r.src,a.r.name,a.r.sgg,a.why.join(" · ")])]);
   const buf = XLSX.write(wb, {type:"array", bookType:"xlsx"});
   download(`부동산익스포저_${D.cur.ym}_분기보고패키지.xlsx`, new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
 }
@@ -2108,11 +2229,12 @@ function reportText(){
     `2. 집중도: 익스포저 상위 10개 시군구 비중 ${fmtPct(t10)}, 지역 HHI ${Math.round(H*1e4)}. 최대 지역은 ${arr[0]?.name||"-"}(${fmtPct(arr[0]?.share)}), 이어서 ${arr.slice(1,3).map(a=>`${a.name}(${fmtPct(a.share)})`).join(", ")}.`,
     `3. 가격 연계: 가격지수가 전년 대비 하락한 ${new Set(decl.map(r=>r.sggCd)).size}개 시군구에 ${fmtWon(declAmt)}원(${fmtPct(tot?declAmt/tot:null)})이 걸려 있음. 하락폭이 큰 지역은 ${arr.filter(a=>a.yoy!=null).sort((a,b)=>a.yoy-b.yoy).slice(0,3).map(a=>`${a.name} ${fmtChg(a.yoy)}`).join(", ")}.`,
     `4. 개별 위험(주담대): 지수조정 LTV ${APP.set.ltvHigh}% 초과 ${hi.length}건 ${fmtWon(sum(hi,r=>r.expo))}원, 요주의 이하·연체 ${bad.length}건 ${fmtWon(sum(bad,r=>r.expo))}원, 1년 이내 만기 ${mat.length}건 ${fmtWon(sum(mat,r=>r.expo))}원.`,
-    `5. 주택연금: 잔액 ÷ 지수조정 주택가격 ${APP.set.hpHigh}% 이상 ${hpHi.length}건 (전체 ${hp.length}건).`,
+    `5. 주택연금: 잔액 ÷ 지수조정 주택가격 ${APP.set.hpHigh}% 이상 ${hpHi.length}건 (전체 ${hp.length}건). 잔액이 주택가격을 넘는 예상 시점(금리 ${APP.set.hpRate}%·주택가격 연 ${APP.set.hpHpi}% 가정)이 5년 이내 ${hp.filter(r=>r.cross?.m!=null&&r.cross.m<=60).length}건, 10년 이내 ${hp.filter(r=>r.cross?.m!=null&&r.cross.m<=120).length}건.`,
     `6. 스트레스('${mid.k}', 주택 −${mid.h}%·상업용 −${mid.c}%, 처분비용 ${APP.set.dispose}%): 주담대 담보부족 ${fmtWon(mr.src["주택담보대출"].loss)}원, 투자부동산 평가손실 ${fmtWon(mr.src["투자부동산"].loss)}원, 주택연금 담보부족 ${fmtWon(mr.src["주택연금"].loss)}원, 합계 ${fmtWon(mr.total)}원.`,
     `7. 조기경보: 경계 ${e3.length}곳${e3.length?`(${e3.slice(0,5).map(a=>a.name).join(", ")})`:""}, 주의 ${e2.length}곳${e2.length?`(${e2.slice(0,5).map(a=>a.name).join(", ")})`:""}.`,
     ...(D.dong.size ? [`8. 동 가격 프록시: ${rows.filter(r=>r.dong?.cred).length}건에 동 지수 반영. 시군구 KB 지수로는 보이지 않는 하락 동 ${[...D.dong.values()].filter(a=>a.hidden).length}곳${[...D.dong.values()].filter(a=>a.hidden).length?`(${[...D.dong.values()].filter(a=>a.hidden).sort((a,b)=>b.tot-a.tot).slice(0,4).map(a=>`${a.sgg} ${a.emd} ${a.type} ${fmtChg(a.d.yoy)}`).join(", ")})`:""}, 익스포저 ${fmtWon(sum([...D.dong.values()].filter(a=>a.hidden),a=>a.tot))}원.`] : []),
     ``,
+    `※ 재평가 대상 ${D.rows.filter(r=>r.reap).length}건(평가 후 ${APP.set.reapMonths}개월 이상 또는 지수 변동 ±${APP.set.reapChg}% 이상)${D.anom?`, 전월 대비 이상치 ${D.anom.length}건`:""}.`,
     `※ 데이터 점검: 오류 ${cur.issues.filter(i=>i.lv==="오류").length}건, 확인 ${cur.issues.filter(i=>i.lv==="확인").length}건. 지역 미확정 ${rows.length===D.rows.length?0:D.rows.length-rows.length}건은 집계에서 제외.`,
     `※ 지수조정 가치 = 평가금액 × (기준월 지수 ÷ 평가월 지수). 지수 출처: ${cur.prices.srcs.join(", ")||"-"}.`,
   ];
@@ -2122,6 +2244,8 @@ const SET_FIELDS = [
   ["ewsWatchYoy","관찰: 지수 전년대비 이하(%)"],["ewsStreak","관찰: 연속 하락 개월"],["ewsShare","주의: 익스포저 비중 이상(%)"],["ewsLtv","주의: 지수조정 LTV 초과(%)"],["ewsAlertYoy","경계: 지수 전년대비 이하(%)"],
   ["ltvHigh","고LTV 표시 기준(%)"],["hpHigh","주택연금 잔액비율 경고(%)"],["dispose","처분비용률(%)"],
   ["pxMinN","동 프록시 최소 표본수(이동평균 기간 합)"],["pxK","동 프록시 가중 k (w = n÷(n+k))"],["pxWindow","동 평균가 이동평균(개월)"],["dongPropagate","하락 동 익스포저 비중 → 시군구 관찰(%)"],
+  ["hpRate","주택연금 대출금리(연 %)"],["hpHpi","주택가격 상승률 가정(연 %)"],["hpHorizon","교차시점 계산 기간(년)"],["reapMonths","재평가: 평가 후 경과(개월)"],["reapChg","재평가: 지수 변동(±%)"],
+  ["anomAppr","이상치: 평가금액·익스포저 변동(%)"],["anomLtv","이상치: LTV 변동(%p)"],["anomKm","이상치: 좌표 이동(km)"],
 ];
 function renderSettings(){
   const s = APP.set;
@@ -2148,6 +2272,11 @@ function renderGuide(){
   <li><b>점검·주소정제</b>에서 오류를 확인합니다. 지역을 찾지 못한 주소는 후보를 골라 확정하면 매핑 사전에 남아 다음 달부터 자동 적용됩니다.</li>
   <li><b>데이터·내보내기</b>에서 원천 시스템 건수·금액을 넣어 대사 차이 0원을 확인합니다.</li>
   <li>지도·집중도·스트레스·조기경보를 확인하고 <b>분기보고 패키지(xlsx)</b>와 코멘트 초안을 내보냅니다.</li></ol>
+  <h3>로우데이터 필수 항목 (표준 양식 v2)</h3>
+  <p>양식의 노랑 칸이 필수입니다. 빈 칸이 있으면 점검·주소정제 화면에 '필수항목 누락'으로 표시됩니다. 법정동코드·좌표·부동산명은 넣지 않아도 됩니다.</p>
+  <table class="t"><thead><tr><th class="l">시트</th><th class="l">필수 항목</th><th class="l">비고</th></tr></thead><tbody>
+  ${SRC.map(S=>`<tr><td class="l">${S.sheet}</td><td class="l wrap">${REQUIRED[S.k].map(k=>FIELD_KR[k]||k).join(", ")}</td><td class="l wrap">${S.k==="주택연금"?"계약번호를 관리번호로 사용 · 대출잔액 직접 입력(지급·이자·비용 누계 열이 있으면 합산)":S.k==="주택담보대출"?"배분비율이 비면 100%로 계산 · 선순위금액이 없으면 0":"익스포저 = 공정가치 × 지분율"}</td></tr>`).join("")}
+  </tbody></table>
   <h3>계산 기준</h3>
   <ul><li>익스포저: 주담대 = 대출잔액 × 배분비율, 투자부동산 = 공정가치 × 지분율, 주택연금 = 지급누계 + 이자누계 + 기타비용누계</li>
   <li>LTV(평가시점) = (선순위금액 + 익스포저) ÷ 평가금액, 주택연금은 잔액 ÷ 주택가격</li>
@@ -2173,14 +2302,167 @@ function renderGuide(){
   <li>배경을 '경계지도(내장)'로 두면 외부로 나가는 요청이 0건입니다. 브라우저 개발자도구 네트워크 탭으로 확인해 보안성 검토 근거로 쓸 수 있습니다.</li>
   <li>불러온 데이터·매핑 사전·대사값은 그 PC 브라우저 저장소에만 남습니다. 다른 PC로 옮길 때는 엑셀 원본과 매핑 사전(json)을 함께 옮기세요.</li>
   <li>실데이터는 내부망 파일에서만 사용합니다. 웹 버전은 가상 데이터 시연용입니다.</li></ul>
-  <h3>완료 기준과 화면 대응</h3>
-  <table class="t"><thead><tr><th class="l">게이트</th><th class="l">확인 위치</th></tr></thead><tbody>
-  <tr><td class="l">G1 데이터 표준화</td><td class="l wrap">점검 · 필수항목/배분비율 게이트, 데이터 · 원천 대사</td></tr>
-  <tr><td class="l">G2 주소정제·지오코딩</td><td class="l wrap">점검 · 법정동코드/좌표 부여율, 미확정 주소 확정</td></tr>
-  <tr><td class="l">G3 가격지표·리스크 지표</td><td class="l wrap">가격지수 매핑률 게이트, 지도 팝업의 지수조정 가치·LTV, 스트레스, 조기경보</td></tr>
-  <tr><td class="l">G4 대시보드</td><td class="l wrap">지도(검색 · 다중 필터 · 시도→시군구 · 리스크 조건 · 개별/지역 전환 · 읍면동 세분화 · 현 지도 검색 · 목록 연동 · 집계표), 점검사항 표시</td></tr>
-  <tr><td class="l">G5 운영 전환</td><td class="l wrap">내부망 파일 + 경계지도 → 외부 통신 0건, 분기보고 패키지로 기존 수작업 결과와 대사</td></tr></tbody></table>
+  <h3>완료 기준과 화면 대응 (상세기획서 v1.1)</h3>
+  <p>시제품 완료(4-1~4-3)는 <b>인수시험</b> 탭에서 가상 데이터로 자동 판정하고 결과표(xlsx)를 증빙으로 남깁니다. 운영 전환 기준(4-4: 실데이터 대사, 제공부서 확인, 유관부서 시연, 정보보호 검토, 실 기준월 2개월 운영)은 내부망 반입 후 별도로 판정합니다.</p>
+  <table class="t"><thead><tr><th class="l">게이트</th><th class="l">자동 판정 내용</th><th class="l">관련 화면</th></tr></thead><tbody>
+  <tr><td class="l">G1 데이터 표준화</td><td class="l wrap">파일 행 수 = 통합테이블 행 수, 업로드 합계 대사 0원</td><td class="l wrap">데이터·내보내기, 점검</td></tr>
+  <tr><td class="l">G2 주소정제·지오코딩</td><td class="l wrap">법정동 98% · 건물 좌표 95% · 표본 100건(시군구 100% · 읍면동 98%) · 미매칭 사유 100%</td><td class="l wrap">점검·주소정제</td></tr>
+  <tr><td class="l">G3 가격지표·리스크 지표</td><td class="l wrap">지수 매핑 100%, 지수조정 LTV·스트레스·조기경보·연금 교차시점·재평가·이상치 산출, 10건 독립 검산</td><td class="l wrap">지도 팝업, 스트레스, 조기경보, 개별 위험</td></tr>
+  <tr><td class="l">G4 대시보드</td><td class="l wrap">기능 체크리스트 C1~C10 자동 조작 시험, 화면 합계 = 통합테이블(원천·시군구), 3,000건 3초 이내</td><td class="l wrap">지도, 집중도·비교</td></tr>
+  <tr><td class="l">G5 내부망 반입 준비</td><td class="l wrap">내부망판 외부 요청 0건, 식별정보 열 없음, 2개 기준월 연속 비교, 같은 입력 같은 결과</td><td class="l wrap">데이터·내보내기, 내부망판 html</td></tr></tbody></table>
+  <h3>개별 위험 산식</h3>
+  <ul><li>주택연금 예상 교차시점: 매월 잔액 = 전월 잔액 × (1 + 연 금리 ÷ 12) + 월지급금(대출한도에 닿으면 지급 중단), 주택가격 = 지수조정 가치 × (1 + 연 상승률 가정)^(개월 ÷ 12). 잔액이 주택가격 이상이 되는 첫 달.</li>
+  <li>재평가 대상: 평가 후 경과 개월이 기준 이상이거나, 평가월 이후 지수 변동(지수조정 계수 − 1)이 ±기준% 이상.</li>
+  <li>이상치: 같은 관리번호·순번의 전월 값 대비 평가금액·익스포저 변동, LTV 변동(%p), 좌표 이동(km), 시군구 변경.</li></ul>
   <p class="muted">빌드 ${esc(BUILD.built||"-")} · ${BUILD.offline?"내부망용(라이브러리 내장)":"웹 버전(라이브러리 CDN)"} · 행정구역 경계: 통계청 SGIS(2018, 공공누리 1유형) · 행정동 대표점: 2023.07 기준 · 샘플의 실제 주소·건물 좌표: © OpenStreetMap 기여자(ODbL) — 금액·고객·담보 내용은 모두 가상</p>`;
+}
+
+/* =====================================================================
+   14-1. 데이터 흐름 (연결 도식 · 한 건 따라가기)
+   ===================================================================== */
+const FLOW = {sel:null};
+const FCOL = [12, 248, 484, 720, 956], FW = 180, FH = 64, FY = y => 34 + y;
+const FNODES = [
+  {id:"raw",  c:0, y:0,   t:"원천 로우데이터", go:"data"},
+  {id:"map",  c:0, y:92,  t:"매핑 사전(담당자)", go:"qa"},
+  {id:"ads",  c:0, y:184, t:"도로명주소 사전", go:"data"},
+  {id:"bjt",  c:0, y:276, t:"법정동코드표(내장)", go:"guide"},
+  {id:"kb",   c:0, y:400, t:"KB 매매가격지수", go:"data"},
+  {id:"prx",  c:0, y:492, t:"동 가격 프록시", go:"dong"},
+  {id:"std",  c:1, y:0,   t:"표준화 · 점검", go:"qa"},
+  {id:"addr", c:1, y:184, t:"주소 → 법정동", go:"qa"},
+  {id:"key",  c:2, y:0,   t:"관리번호 · 기준년월", go:"data"},
+  {id:"xy",   c:2, y:92,  t:"좌표(위도·경도)", go:"map"},
+  {id:"bjd",  c:2, y:184, t:"법정동코드 10자리", go:"qa"},
+  {id:"sgg",  c:2, y:276, t:"시군구코드 5자리", go:"conc"},
+  {id:"met",  c:3, y:0,   t:"익스포저 · LTV", go:"conc"},
+  {id:"px",   c:3, y:400, t:"가격 결합", go:"dong"},
+  {id:"vmap", c:4, y:0,   t:"지도", go:"map"},
+  {id:"vcon", c:4, y:92,  t:"집중도 · 비교", go:"conc"},
+  {id:"vstr", c:4, y:184, t:"스트레스 · 조기경보", go:"stress"},
+  {id:"vqa",  c:4, y:276, t:"점검 · 내보내기", go:"qa"},
+  {id:"vdong",c:4, y:400, t:"동 가격", go:"dong"},
+];
+// [출발, 도착, 이름표, 보조선 여부]
+const FEDGES = [
+  ["raw","std","금액"], ["raw","addr","도로명주소"], ["map","addr","주소"], ["ads","addr","건물 대조"], ["bjt","addr","동 이름"],
+  ["std","key",""], ["key","met",""], ["addr","xy","좌표"], ["addr","bjd","10자리"], ["bjd","sgg","앞 5자리"],
+  ["bjd","px","법정동"], ["sgg","px","시군구"], ["kb","px","시군구 · 유형 · 월"], ["prx","px","법정동 · 유형 · 월"], ["px","met","지수조정계수"],
+  ["xy","vmap","핀 위치"], ["sgg","vmap","지역 색"], ["met","vmap",""], ["met","vcon",""], ["met","vstr",""], ["px","vdong",""],
+  ["std","vqa","",1], ["addr","vqa","",1],
+];
+function flowStats(){
+  const D = APP.D, cur = D?.cur, R = D?.rows || [], n = R.length, c = f => R.filter(f).length, hw = h => c(r=>r.bjdHow===h);
+  const by = k => c(r=>r.src===k), DG = cur?.dongPx;
+  const dongKeys = DG ? new Set([...DG.m.values()]).size : 0;
+  const kbN = cur ? new Set([...cur.prices.m.keys()].map(k=>k.split("|")[0])).size : 0;
+  const emdN = Object.values(BJ.e).reduce((t,v)=>t+v.split("|").length,0);
+  const I = cur?.issues || [];
+  return {
+    raw:[`${fmtN(n)}행`, `주담대 ${by("주택담보대출")} · 투자 ${by("투자부동산")} · 연금 ${by("주택연금")}`],
+    map:[`${Object.keys(APP.dict).length}건 등록`, `적용 ${hw("매핑사전")}건`],
+    ads:[`${fmtN(ADS.rows.length)}개 건물${ADS.sample?"(시험용)":""}`, `대조 성공 ${hw("도로명사전")+hw("도로명사전(도로)")}건`],
+    bjt:[`읍면동·리 ${fmtN(emdN)}곳`, `${BJ.ver||"-"} · 이름 대조 ${hw("법정동명")}건`],
+    kb:[`${kbN}개 지역 시계열`, `최신 ${ymLabel(cur?.prices.latest)}${PXS.idx.length?"":" · 원천 시트"}`],
+    prx:[`${fmtN(dongKeys)}개 동×유형`, `최신 ${ymLabel(DG?.latest)}${PXS.sample?" (가상)":""}`],
+    std:[`오류 ${I.filter(i=>i.lv==="오류").length} · 확인 ${I.filter(i=>i.lv==="확인").length}`, `익스포저·LTV 재계산`],
+    addr:[`건물 ${hw("도로명사전")} · 도로 ${hw("도로명사전(도로)")} · 동 ${hw("법정동명")}`, `시군구만 ${hw("주소정제")} · 미매칭 ${c(r=>!r.sggCd)}`],
+    key:[`기준월 ${ymLabel(cur?.ym)}`, `관리번호 ${new Set(R.map(r=>r.id)).size}개`],
+    bjd:[`부여 ${c(r=>/^\d{10}$/.test(r.bjd||""))}/${n}건`, `법정동 ${new Set(R.filter(r=>r.bjd).map(r=>r.bjd)).size}곳`],
+    sgg:[`${D?.agg.g.size||0}개 시군구`, `옛 코드 → 현행 자동 변환`],
+    xy:[`건물 ${c(r=>r.geo==="건별"||r.geo==="건물좌표(사전)")} · 동 ${c(r=>r.geo==="읍면동 대표점")}`, `시군구 대표점 ${c(r=>r.geo==="시군구 대표점")}`],
+    px:[`동 반영 ${c(r=>r.dong?.cred)} · KB만 ${c(r=>r.sggCd && !r.dong?.cred && r.idxLevel && r.idxLevel!=="없음")}`, `지수 없음 ${c(r=>r.idxLevel==="없음")}`],
+    met:[`총 ${fmtWon(D?.agg.all)}`, `조정 LTV ${c(r=>r.adjLtv!=null)}건`],
+    vmap:["핀(원천별 색) · 지역 색", "확대 시 읍면동 단위"], vcon:["시군구·읍면동 집계", "전월 대비 · HHI"], vstr:["하락 시나리오 손실", "지역 경보 등급"],
+    vdong:[`숨은 하락 ${[...(D?.dong.values()||[])].filter(a=>a.hidden).length}곳`, "동×유형 가격지표"], vqa:[`점검 ${I.length}건`, "분기보고 패키지"],
+  };
+}
+function drawFlow(){
+  const st = flowStats(), on = FLOW.path || {nodes:new Set(), edges:new Set()};
+  const N = Object.fromEntries(FNODES.map(n => [n.id, {...n, x:FCOL[n.c], yy:FY(n.y)}]));
+  const heads = ["입력 자료","처리","연결 키","가격 · 지표","화면"];
+  let h = heads.map((t,i)=>`<text class="col" x="${FCOL[i]}" y="18">${t}</text>`).join("");
+  const edgeEls = [], labelEls = [];
+  FEDGES.forEach(([a,b,l,minor]) => {
+    const A = N[a], B = N[b], k = `${a}>${b}`, isOn = on.edges.has(k);
+    let d, lx, ly, anchor = "middle";
+    if(A.c===B.c){                                   // 같은 열: 위아래로 곧게
+      const x = A.x + FW/2, down = B.yy > A.yy, y1 = down ? A.yy+FH : A.yy, y2 = down ? B.yy : B.yy+FH;
+      d = `M${x},${y1} L${x},${y2}`; lx = x+8; ly = (y1+y2)/2+4; anchor = "start";
+    } else {
+      const x1 = A.x+FW, y1 = A.yy+FH/2, x2 = B.x, y2 = B.yy+FH/2, dx = Math.max(28,(x2-x1)/2);
+      d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+      lx = (x1+x2)/2; ly = (y1+y2)/2-5;
+    }
+    edgeEls.push(`<path class="eg${isOn?" on":""}${minor?" mn":""}" d="${d}" marker-end="url(#ah${isOn?"On":""})"/>`);
+    if(l) labelEls.push(`<text class="el${isOn?" on":""}" x="${lx}" y="${ly}" text-anchor="${anchor}">${esc(l)}</text>`);
+  });
+  const nodes = FNODES.map(n0 => { const n = N[n0.id], s2 = st[n.id]||["",""];
+    return `<g class="nd${on.nodes.has(n.id)?" on":""}" data-go="${n.go}" tabindex="0" role="button" aria-label="${esc(n.t)}: ${esc(s2.join(", "))}">
+      <rect x="${n.x}" y="${n.yy}" width="${FW}" height="${FH}" rx="9"/>
+      <text class="t1" x="${n.x+12}" y="${n.yy+21}">${esc(n.t)}</text>
+      <text class="t2" x="${n.x+12}" y="${n.yy+39}">${esc(s2[0])}</text>
+      <text class="t3" x="${n.x+12}" y="${n.yy+55}">${esc(s2[1])}</text></g>`; }).join("");
+  $("#flowSvg").innerHTML = `<defs>
+    <marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--line-2)"/></marker>
+    <marker id="ahOn" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--accent)"/></marker></defs>
+    ${h}${edgeEls.join("")}${nodes}${labelEls.join("")}`;
+  $$("#flowSvg .nd").forEach(g => { const f = () => go(g.dataset.go); g.onclick = f; g.onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); f(); } }; });
+}
+/** 한 건의 경로: 어떤 입력·처리·키를 거쳤는지 */
+function flowPathOf(r){
+  const nodes = new Set(["raw","std","key","met"]), edges = new Set(["raw>std","std>key","key>met"]);
+  const add = (a,b) => { nodes.add(a); nodes.add(b); edges.add(`${a}>${b}`); };
+  add("raw","addr");
+  if(r.bjdHow==="매핑사전") add("map","addr");
+  if(r.bjdHow?.startsWith("도로명사전")) add("ads","addr");
+  if(r.bjdHow==="법정동명") add("bjt","addr");
+  if(r.bjd) add("addr","bjd");
+  if(r.sggCd){ if(r.bjd) add("bjd","sgg"); else nodes.add("sgg"); }
+  if(r.lat!=null){ add("addr","xy"); add("xy","vmap"); add("met","vmap"); }
+  if(r.sggCd){ add("sgg","px"); add("kb","px"); add("px","met"); add("sgg","vmap"); }
+  if(r.dong?.cred){ add("bjd","px"); add("prx","px"); add("px","vdong"); }
+  add("met","vcon"); add("met","vstr");
+  if(!r.sggCd || r.bjdHow==="주소정제") add("addr","vqa");
+  return {nodes, edges};
+}
+function renderTrace(r){
+  if(!r){ $("#flowTrace").innerHTML = ""; FLOW.path = null; drawFlow(); return; }
+  FLOW.sel = r; FLOW.path = flowPathOf(r);
+  const pa = parseAddr(r.addr, r.sidoRaw, r.sggRaw), pr = parseRoad(r.addr);
+  const how = {"원천":"원천에 법정동코드가 있어 그대로 사용", "매핑사전":"담당자가 확정한 매핑 사전에서 찾음", "도로명사전":"도로명주소 사전에서 같은 건물(시+도로명+건물번호)을 찾음", "도로명사전(도로)":"사전에 그 건물은 없지만 도로 전체가 한 법정동에 있어 동을 확정", "법정동명":"주소 속 법정동 이름(괄호 참고항목·지번·동 이름)을 법정동코드표에서 찾음", "주소정제":"동을 정하지 못해 시군구까지만 분류(점검목록)"}[r.bjdHow] || "지역을 정하지 못함(미매칭)";
+  const geo = {"건별":"원천 좌표", "건물좌표(사전)":"도로명주소 사전의 건물 좌표", "읍면동 대표점":"법정동 중심 근처(행정동 대표점)", "시군구 대표점":"시군구 중심", "미매칭":"지도에 표시하지 않음"}[r.geo] || r.geo;
+  const steps = [
+    ["1. 원천 행", `${esc(r.src)} 시트 · 관리번호 <code>${esc(r.id)}${r.seq>1?"-"+r.seq:""}</code> · ${esc(r.type)} · ${esc(r.name||"-")}<br>입력 주소 <code>${esc(r.addr)}</code>`],
+    ["2. 주소 해석", pa ? `시군구 후보 <b>${esc(pa.cands.map(c=>`${BJ.s[c]?.[0]||""} ${BJ.s[c]?.[1]||c}`).join(" / "))}</b>${pa.emd?` · 주소 속 동 이름 <b>${esc(pa.emd)}</b>`:""}${pr?` · 도로명 <b>${esc(pr.road)}</b> 건물번호 <b>${pr.main??"-"}${pr.sub?"-"+pr.sub:""}</b>`:""}` : `시도·시군구를 알아보지 못함`],
+    ["3. 법정동 부여", `${how}${r.bjd?` → 법정동코드 <code>${r.bjd}</code> = 시군구 <code>${r.bjd.slice(0,5)}</code> + 읍면동 <code>${r.bjd.slice(5,8)}</code> + 리 <code>${r.bjd.slice(8)}</code> (${esc(r.sido)} ${esc(r.sgg)} ${esc(r.emd)})`:r.sggCd?` → 시군구 <code>${r.sggCd}</code> (${esc(r.sido)} ${esc(r.sgg)})`:""}`],
+    ["4. 지도 위치", r.lat!=null ? `${geo} · ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}` : geo],
+    ["5. 가격 결합", r.sggCd ? `시군구 KB ${esc(r.sggType||"")} 지수 전년대비 <b>${fmtChg(r.sggYoy)}</b>${r.idxLevel==="시도 대체"?" (시도 지수 대체)":r.idxLevel==="상위 시"?" (상위 시 지수)":""}${r.dong?` · 동 프록시(${esc(r.dong.type)}) 전년대비 <b>${fmtChg(r.dong.yoy)}</b>, 표본 ${r.dong.n}${r.dong.cred?`, 가중 ${(r.dong.w*100).toFixed(0)}%`:" → 표본 부족으로 미반영"}`:" · 이 동의 가격 프록시 없음"} → 반영 전년대비 <b>${fmtChg(r.yoy)}</b>` : "지역이 없어 연결 불가"],
+    ["6. 지표 계산", `익스포저 <b>${fmtWon(r.expo)}</b> · 평가금액 ${fmtWon(r.appr)}${r.src!=="투자부동산"&&r.ratio!=null?` × 지수조정계수 ${r.ratio.toFixed(3)} = 지수조정가치 <b>${fmtWon(r.adjVal)}</b>`:""}${r.ltv!=null?` · LTV ${fmtPct(r.ltv)} → 조정 <b>${fmtPct(r.adjLtv)}</b>`:""} · 지역 조기경보 ${ewsTag(r.ews||0)}`],
+  ];
+  $("#flowTrace").innerHTML = `<div class="steps">${steps.map(([a,b])=>`<div class="step"><b>${a}</b><div class="d">${b}</div></div>`).join("")}</div>
+    <div class="filters" style="margin-top:10px">${r.lat!=null?`<button class="btn pri" id="flowMap">지도에서 이 건 보기</button>`:""}<span class="muted">위 도식에서 이 건이 지난 칸과 연결선이 초록색으로 표시됩니다.</span></div>`;
+  $("#flowMap") && ($("#flowMap").onclick = () => { go("map"); MAP.F.q = r.id.toLowerCase(); $("#q").value = r.id; MAP.render(true); setTimeout(()=>MAP.select(r,true), 60); });
+  drawFlow();
+}
+function renderFlow(){
+  if(!APP.D){ emptyPage(); drawFlow(); return; }
+  const rows = APP.D.rows;
+  const find = () => { const q = $("#flowQ").value.trim().toLowerCase(); if(!q) return;
+    const r = rows.find(x => x.id.toLowerCase()===q) || rows.find(x => `${x.id} ${x.addr} ${x.name} ${x.emd}`.toLowerCase().includes(q));
+    $("#flowMsg").textContent = r ? "" : "찾는 건이 없습니다."; if(r) renderTrace(r); };
+  $("#flowGo").onclick = find;
+  $("#flowQ").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); find(); } };
+  $("#flowRand").onclick = () => { const r = rows[Math.floor(Math.random()*rows.length)]; $("#flowQ").value = r.id; renderTrace(r); };
+  $("#flowKeys").innerHTML = `<thead><tr><th class="l">연결</th><th class="l">키</th><th class="l">설명</th></tr></thead><tbody>
+    <tr><td class="l">원천 행 ↔ 원천 행(전월)</td><td class="l"><code>관리번호 + 부동산순번</code>, <code>기준년월</code></td><td class="l wrap">같은 대출·자산을 기준월마다 같은 번호로 넣어야 전월 대비 증감이 계산됩니다.</td></tr>
+    <tr><td class="l">도로명주소 → 법정동</td><td class="l"><code>시(앞 4자리) + 도로명 + 건물본번-부번</code></td><td class="l wrap">도로명주소 사전(주소DB)과 대조해 법정동코드와 건물 좌표를 얻습니다. 사전에 없으면 괄호 참고항목·동 이름으로 법정동코드표를 찾습니다.</td></tr>
+    <tr><td class="l">법정동코드 구조</td><td class="l"><code>11 710 108 00</code></td><td class="l wrap">시도(2) + 시군구(3) + 읍면동(3) + 리(2). 앞 5자리가 시군구코드입니다.</td></tr>
+    <tr><td class="l">담보 ↔ KB 지수</td><td class="l"><code>시군구코드 + 건물유형 + 월</code></td><td class="l wrap">평가월과 기준월의 지수 비율로 지수조정가치를 구합니다. 시군구 지수가 없으면 상위 시 → 시도 지수로 대체합니다. 옛 시군구코드는 현행 코드로 자동 변환됩니다.</td></tr>
+    <tr><td class="l">담보 ↔ 동 가격 프록시</td><td class="l"><code>법정동코드 + 건물유형 + 월</code></td><td class="l wrap">표본이 충분하면 동 지수를 시군구 KB 지수와 가중해 반영합니다.</td></tr>
+    <tr><td class="l">담보 ↔ 지도</td><td class="l"><code>위도·경도</code>, <code>시군구코드</code></td><td class="l wrap">핀은 좌표(건물 → 동 대표점 → 시군구 대표점 순), 지역 색은 시군구코드로 경계에 칠합니다.</td></tr></tbody>`;
+  if(!FLOW.sel || !rows.includes(FLOW.sel)){ const r0 = rows.find(r=>r.bjdHow==="도로명사전" && r.dong?.cred) || rows[0]; $("#flowQ").value = r0.id; renderTrace(r0); }
+  else renderTrace(FLOW.sel);
 }
 
 /* =====================================================================
@@ -2284,6 +2566,440 @@ function chatBind(){
 }
 
 /* =====================================================================
+   14-2. 개별 위험 (주택연금 교차시점 · 재평가 대상 · 이상치)
+   ===================================================================== */
+function crossLabel(c){
+  if(!c) return "-";
+  if(c.m==null) return `${APP.set.hpHorizon}년 안에 없음`;
+  if(c.m===0) return `<b class="dn">이미 초과</b>`;
+  return `${ymLabel(c.ym)} <span class="muted">(${c.m < 24 ? c.m+"개월" : (c.m/12).toFixed(1)+"년"} 후)</span>`;
+}
+function openRow(r){
+  if(r.lat==null) return toast("지역이 확정되지 않아 지도에 없는 건입니다.");
+  go("map"); MAP.F.q = String(r.id).toLowerCase(); $("#q").value = r.id; MAP.render(true);
+  setTimeout(()=>MAP.select(r, true), 60);
+}
+function renderRisk(){
+  const D = APP.D; if(!D) return emptyPage();
+  const S = APP.set;
+  const hp = D.rows.filter(r => r.src==="주택연금" && r.cross);
+  const cr = hp.filter(r => r.cross.m!=null).sort((a,b)=>a.cross.m-b.cross.m || b.expo-a.expo);
+  const by = m => cr.filter(r => r.cross.m <= m);
+  const reap = D.rows.filter(r => r.reap).sort((a,b)=>b.expo-a.expo);
+  const an = D.anom;
+  $("#rkTiles").innerHTML = `
+    <div class="tile"><div class="l">연금 교차 · 이미 초과</div><div class="v">${by(0).length}건</div><div class="s">잔액 ${fmtWon(sum(by(0),r=>r.expo))}</div></div>
+    <div class="tile"><div class="l">연금 교차 · 5년 이내</div><div class="v">${by(60).length}건</div><div class="s">10년 이내 ${by(120).length}건 · 전체 ${hp.length}건</div></div>
+    <div class="tile"><div class="l">재평가 대상</div><div class="v">${reap.length}건</div><div class="s">익스포저 ${fmtWon(sum(reap,r=>r.expo))}</div></div>
+    <div class="tile"><div class="l">전월 대비 이상치</div><div class="v">${an ? an.length+"건" : "-"}</div><div class="s">${an ? `${ymLabel(D.cmp.ym)} 대비` : "비교 기준월 없음"}</div></div>`;
+  $("#rkCrossNote").textContent = `가정: 대출금리 연 ${S.hpRate}% · 주택가격 연 ${S.hpHpi>=0?"+":""}${S.hpHpi}% · 월지급금 계속(지급중, 대출한도 도달 시 중단) · 최대 ${S.hpHorizon}년`;
+  $("#rkCrossT").innerHTML = `<thead><tr><th class="l">계약번호</th><th class="l">지역</th><th>대출잔액</th><th>지수조정 주택가격</th><th>잔액비율</th><th>월지급금</th><th>대출한도</th><th class="l">예상 교차시점</th></tr></thead><tbody>` +
+    ([...cr, ...hp.filter(r=>r.cross.m==null)].slice(0,300).map((r,i)=>`<tr class="click" data-i="${i}"><td class="l">${esc(r.id)}</td><td class="l">${esc(`${SIDO_SHORT[r.sido]||r.sido} ${r.sgg} ${r.emd||""}`)}</td><td>${fmtWon(r.expo)}</td><td>${fmtWon(r.adjVal)}</td><td>${fmtPct(r.adjLtv)}</td><td>${fmtWon(r.mpay)}</td><td>${fmtWon(r.limit)}</td><td class="l">${crossLabel(r.cross)}</td></tr>`).join("") || `<tr><td colspan="8" class="empty">주택연금 건이 없습니다.</td></tr>`) + `</tbody>`;
+  const crl = [...cr, ...hp.filter(r=>r.cross.m==null)];
+  $$("#rkCrossT tbody tr[data-i]").forEach(tr => tr.onclick = () => openRow(crl[+tr.dataset.i]));
+  $("#rkReapNote").textContent = `평가 후 ${S.reapMonths}개월 이상 또는 평가월 이후 지수 변동 ±${S.reapChg}% 이상 · 평가금액·평가일 없음`;
+  $("#rkReapT").innerHTML = `<thead><tr><th class="l">관리번호</th><th class="l">원천</th><th class="l">부동산명</th><th class="l">지역</th><th>평가금액</th><th class="l">평가일</th><th>익스포저</th><th class="l">사유</th></tr></thead><tbody>` +
+    (reap.slice(0,300).map((r,i)=>`<tr class="click" data-i="${i}"><td class="l">${esc(r.id)}</td><td class="l">${SRC_BY[r.src].short}</td><td class="l">${esc(r.name||"-")}</td><td class="l">${esc(r.sgg)}</td><td>${fmtWon(r.appr)}</td><td class="l">${esc(r.apprDt||"-")}</td><td>${fmtWon(r.expo)}</td><td class="l wrap">${esc(r.reap)}</td></tr>`).join("") || `<tr><td colspan="8" class="empty">재평가 대상이 없습니다.</td></tr>`) + `</tbody>`;
+  $$("#rkReapT tbody tr[data-i]").forEach(tr => tr.onclick = () => openRow(reap[+tr.dataset.i]));
+  $("#rkAnomNote").textContent = an ? `${ymLabel(D.cmp.ym)} → ${ymLabel(D.cur.ym)} · 평가금액·익스포저 ±${S.anomAppr}% · LTV ±${S.anomLtv}%p · 좌표 ${S.anomKm}km 이상 · 시군구 변경` : "상단에서 비교 기준월을 고르면 계산합니다";
+  $("#rkAnomT").innerHTML = `<thead><tr><th class="l">관리번호</th><th class="l">원천</th><th class="l">부동산명</th><th class="l">지역</th><th>익스포저</th><th class="l">변동 내용</th></tr></thead><tbody>` +
+    (!an ? `<tr><td colspan="6" class="empty">비교 기준월이 없습니다.</td></tr>` : an.map((a,i)=>`<tr class="click" data-i="${i}"><td class="l">${esc(a.r.id)}${a.r.seq>1?"-"+a.r.seq:""}</td><td class="l">${SRC_BY[a.r.src].short}</td><td class="l">${esc(a.r.name||"-")}</td><td class="l">${esc(a.r.sgg||"-")}</td><td>${fmtWon(a.r.expo)}</td><td class="l wrap">${esc(a.why.join(" · "))}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">기준을 넘는 변동이 없습니다.</td></tr>`) + `</tbody>`;
+  if(an) $$("#rkAnomT tbody tr[data-i]").forEach(tr => tr.onclick = () => openRow(an[+tr.dataset.i].r));
+}
+
+/* =====================================================================
+   14-3. 분기 리포트 (인쇄 → PDF · html 저장)
+   ===================================================================== */
+function reportHtml(){
+  const D = APP.D, A = D.agg, S = APP.set;
+  const arr = [...A.g.values()].sort((a,b)=>b.tot-a.tot);
+  const tb = (head, rows) => `<table><thead><tr>${head.map((h,i)=>`<th class="${i===0||/지역|사유|시나리오|가정|등급/.test(h)?"l":""}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((v,i)=>`<td class="${i===0||typeof v==="string"&&!/^[-▲▼+−\d.,%억만건 ]+$/.test(v)?"l":""}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const sc = S.presets.map(p => ({p, r:runStress(D.rows, stressParams({h:p.h,c:p.c,d:S.dispose,scope:p.scope,topN:p.topN,picked:new Set()}))}));
+  const hp = D.rows.filter(r=>r.src==="주택연금" && r.cross?.m!=null).sort((a,b)=>a.cross.m-b.cross.m);
+  const lines = reportText().split("\n");
+  return `<h1>${esc(lines[0].replace(/^\[|\]$/g,"").replace(/\]\s*※.*$/,""))}</h1>
+    <p class="muted">리스크관리부 · 생성 ${new Date().toISOString().slice(0,16).replace("T"," ")} · 원천 ${esc(D.cur.file)}${D.cur.sample?" · 가상 샘플 데이터":""}</p>
+    <h2>요약</h2>${lines.slice(1).filter(l=>l.trim()).map(l=>`<p>${esc(l)}</p>`).join("")}
+    <h2>익스포저 상위 10개 시군구</h2>${tb(["지역","주담대","투자","연금","합계","비중","지수 전년대비","조기경보"], arr.slice(0,10).map(a=>[a.name,fmtWon(a.by["주택담보대출"]||0),fmtWon(a.by["투자부동산"]||0),fmtWon(a.by["주택연금"]||0),fmtWon(a.tot),fmtPct(a.share),fmtChg(a.yoy),EWS[a.ews].name]))}
+    <h2>조기경보 주의 · 경계 지역</h2>${arr.filter(a=>a.ews>=2).length ? tb(["등급","지역","익스포저","비중","근거"], arr.filter(a=>a.ews>=2).sort((a,b)=>b.ews-a.ews||b.tot-a.tot).map(a=>[EWS[a.ews].name,a.name,fmtWon(a.tot),fmtPct(a.share),a.why.join(" · ")])) : "<p>해당 지역 없음</p>"}
+    <h2>스트레스 시나리오</h2>${tb(["시나리오","가정","주담대 담보부족","투자 평가손실","연금 담보부족","합계"], sc.map(({p,r})=>[p.k,`주택 −${p.h}% · 상업 −${p.c}%${p.scope==="top"?` · 상위 ${p.topN}곳`:""}`,fmtWon(r.src["주택담보대출"].loss),fmtWon(r.src["투자부동산"].loss),fmtWon(r.src["주택연금"].loss),fmtWon(r.total)]))}
+    <h2>주택연금 예상 교차시점 (빠른 순 10건)</h2>${hp.length ? tb(["계약번호","지역","대출잔액","지수조정 주택가격","잔액비율","예상 교차시점"], hp.slice(0,10).map(r=>[String(r.id),`${r.sgg} ${r.emd||""}`,fmtWon(r.expo),fmtWon(r.adjVal),fmtPct(r.adjLtv),r.cross.m===0?"이미 초과":ymLabel(r.cross.ym)])) : "<p>가정 기간 안에 교차하는 건 없음</p>"}
+    <p class="muted" style="margin-top:12pt">지수조정 가치 = 평가금액 × (기준월 지수 ÷ 평가월 지수). 수치는 통합테이블에서 바로 인용했으며 검토 후 사용합니다.</p>`;
+}
+function reportDoc(){
+  const st = [...document.querySelectorAll("style")].map(x=>x.textContent).join("\n").match(/@media print\{[\s\S]*?\n\}/)?.[0] || "";
+  const body = st.replace(/^@media print\{/, "").replace(/\}$/, "").replace(/#printArea /g, "").replace(/#printArea\{[^}]*\}/, "body{color:#000;font:11pt/1.55 sans-serif;max-width:900px;margin:24px auto;padding:0 16px}").replace(/body>\*:not\(#printArea\)\{[^}]*\}/, "");
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>분기 부동산 익스포저 리포트</title><style>${body}</style></head><body>${reportHtml()}</body></html>`;
+}
+function printReport(){
+  let el = $("#printArea");
+  if(!el){ el = document.createElement("div"); el.id = "printArea"; document.body.appendChild(el); }
+  el.innerHTML = reportHtml();
+  try{ window.print(); }catch(e){ toast("이 화면에서는 인쇄가 막혀 있습니다. '리포트 html 저장' 후 브라우저에서 인쇄하세요.", 5000); }
+}
+
+/* =====================================================================
+   14-4. 인수시험 — 상세기획서 v1.1 4-1(G1~G5) · 4-3(C1~C10) 자동 판정
+   화면 조작 결과를 통합테이블(csv)을 다시 읽어 만든 독립 집계·산식과 대조한다.
+   ===================================================================== */
+const TEST = {res:null, detail:{}, at:null, ym:null, running:false};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function rng(seed){ let a = 0; for(const ch of String(seed)) a = (a*31 + ch.charCodeAt(0)) >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t>>>15, t | 1); t ^= t + Math.imul(t ^ t>>>7, t | 61); return ((t ^ t>>>14) >>> 0) / 4294967296; }; }
+function sampleOf(arr, n, R){ const a = [...arr]; for(let i=a.length-1;i>0;i--){ const j = Math.floor(R()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a.slice(0, n); }
+function parseCsv(t){
+  const out = []; let row = [], f = "", q = false;
+  for(let i=0;i<t.length;i++){ const c = t[i];
+    if(q){ if(c==='"'){ if(t[i+1]==='"'){ f+='"'; i++; } else q = false; } else f += c; }
+    else if(c==='"') q = true; else if(c===","){ row.push(f); f = ""; } else if(c==="\r"){} else if(c==="\n"){ row.push(f); out.push(row); row = []; f = ""; } else f += c; }
+  row.push(f); out.push(row);
+  const [h, ...rs] = out; return rs.filter(r=>r.length===h.length).map(r => Object.fromEntries(h.map((k,i)=>[k, r[i]])));
+}
+function hashStr(s){ let h = 5381; for(let i=0;i<s.length;i++) h = (h*33 ^ s.charCodeAt(i)) >>> 0; return h.toString(16); }
+function waitMove(ms=900){ return new Promise(res => { let done = false; const f = () => { if(!done){ done = true; res(); } }; MAP.map.once("moveend", f); setTimeout(f, ms); }); }
+function waitPopup(ms=2500){ return new Promise(res => { let done = false; const f = () => { if(!done){ done = true; res(); } }; MAP.map.once("popupopen", f); setTimeout(f, ms); }); }
+function resetMapFilters(){
+  const F = MAP.F, D = APP.D;
+  F.src = new Set(SRC.map(s=>s.k)); F.types = new Set(D.rows.map(r=>r.type)); F.sido = ""; F.sgg = ""; F.ltv = 0; F.basis = "adj";
+  F.risk = F.decl = F.mat = F.ews = false; F.q = ""; F.bounds = null;
+  $("#q").value = ""; $("#fLtv").value = 0; $("#fLtvBasis").value = "adj";
+  ["#fRisk","#fDecl","#fMat","#fEws"].forEach(id => $(id).checked = false);
+  $("#mInview").textContent = "↻ 현 지도에서 검색";
+  MAP.sort = "tot"; MAP.buildFilters(); MAP.render();
+}
+
+async function runAcceptance(){
+  const D = APP.D; if(!D) return toast("데이터가 없습니다.");
+  if(TEST.running) return; TEST.running = true;
+  $("#tRun").disabled = true; $("#tExp").disabled = true;
+  const msg = t => { $("#tMsg").textContent = t; };
+  const res = [], det = {검산:[], 표본:[], 성능:[], 기능:[]};
+  const R = rng("acceptance-" + D.cur.ym);
+  const put = (g, id, item, crit, val, ok, note="") => res.push({g, id, item, crit, val:String(val), ok, note});
+  const t0 = performance.now();
+  const keepView = APP.view, keepMode = MAP.mode;
+  try{
+    const cur = D.cur, rows = D.rows, base = cur.ym, S = APP.set;
+    const csv = parseCsv(csvText());
+    const C = csv.map(o => ({id:o["관리번호"], seq:+o["부동산순번"], src:o["원천구분"], type:o["부동산유형"], sggCd:o["시군구코드"], sido:o["시도"], sgg:o["시군구"], emd:o["읍면동"], expo:+o["익스포저"]||0, hasLL:o["위도"]!=="" }));
+    const mapped = C.filter(c => c.hasLL);
+    const totOf = a => sum(a, x=>x.expo);
+
+    /* ---------------- G1 데이터 표준화 ---------------- */
+    msg("G1 적재·대사 확인 중…");
+    const rawN = SRC.map(s => [s.k, (cur.raw[s.sheet]||[]).length]), rowN = SRC.map(s => rows.filter(r=>r.src===s.k).length);
+    put("G1","G1-1","3개 원천 적재","파일 행 수 = 통합테이블 행 수(원천별)", rawN.map(([k,n],i)=>`${SRC_BY[k].short} ${rowN[i]}/${n}`).join(" · "), rawN.every(([,n],i)=>n===rowN[i]) && rowN.every(n=>n>0));
+    const rawAmt = SRC.map(s => sum(cur.raw[s.sheet]||[], r => s.k==="주택담보대출" ? Math.round((num(r.BAL_AMT)||0) * (num(r.ALLOC_RATIO) ?? 1)) : s.k==="투자부동산" ? Math.round((num(r.FV_AMT)||0) * (num(r.SHARE_RATIO) ?? 0)) : Math.round(r.PAID_CUM!=null||r.INT_CUM!=null ? (num(r.PAID_CUM)||0)+(num(r.INT_CUM)||0)+(num(r.FEE_CUM)||0) : (num(r.EXPO_AMT)||0))));
+    const tblAmt = SRC.map(s => totOf(C.filter(c=>c.src===s.k)));
+    put("G1","G1-2","업로드 파일 합계 대사","파일 합계 − 통합테이블 합계 = 0원(원천별)", SRC.map((s,i)=>`${s.short} ${tblAmt[i]-rawAmt[i]===0?"0원":fmtN(tblAmt[i]-rawAmt[i])+"원"}`).join(" · "), SRC.every((s,i)=>tblAmt[i]===rawAmt[i]), `합계 ${fmtN(sum(tblAmt,x=>x))}원`);
+    const rc = APP.recon[cur.ym], rd = rc ? reconDiff(cur, rc) : null;
+    put("G1","G1-3","원천 시스템 대사(참고)","원천 건수·금액 입력 시 차이 0원", rd&&rd.some(d=>d.has) ? rd.map(d=>`${SRC_BY[d.k].short} ${d.a===0?"0원":fmtN(d.a)}`).join(" · ") : "입력 없음", null, "운영 전환 기준 O1 — 시제품 판정 제외");
+
+    /* ---------------- G2 주소정제 ---------------- */
+    msg("G2 주소정제·표본 검수 중…");
+    const n = rows.length, bjd10 = rows.filter(r=>/^\d{10}$/.test(r.bjd||"")).length, bldg = rows.filter(r=>r.geo==="건별"||r.geo==="건물좌표(사전)").length;
+    const repN = rows.filter(r=>/대표점/.test(r.geo||"")).length, noLL = rows.filter(r=>r.lat==null).length;
+    put("G2","G2-1","법정동코드 부여율","≥ 98%(건수)", fmtPct(bjd10/n, 2), bjd10/n >= .98, `${bjd10}/${n}건`);
+    put("G2","G2-2","좌표 부여율","건물 좌표 ≥ 95%, 나머지는 대표점 표시", fmtPct(bldg/n, 2), bldg/n >= .95 && rows.every(r => r.lat!=null || !r.sggCd), `건물 ${bldg} · 대표점 ${repN} · 지도 제외(미매칭) ${noLL}`);
+    const truth = cur.sample && SAMPLE?._truth;
+    if(truth){
+      const pool = rows.filter(r => truth[`${r.id}#${r.seq}`] || truth[`${r.srcNo}#${r.seq}`]);
+      const smp = sampleOf(pool, Math.min(100, pool.length), R);
+      let sOk = 0, eOk = 0;
+      smp.forEach(r => { const t = truth[`${r.id}#${r.seq}`] || truth[`${r.srcNo}#${r.seq}`]; const ts = (canonSgg(t)[0]||t.slice(0,5)), so = r.sggCd===ts, eo = r.bjd===t; sOk += so; eOk += eo;
+        det.표본.push([r.id, r.seq, r.addr, t, `${BJ.s[ts]?.[1]||""} ${bjdName(t)||""}`, r.bjd||"", `${r.sgg||""} ${r.emd||""}`, r.bjdHow||"", so?"일치":"불일치", eo?"일치":"불일치"]); });
+      put("G2","G2-3","표본 100건 검수",`시군구 100% · 읍면동 ≥ 98%`, `시군구 ${fmtPct(sOk/smp.length)} · 읍면동 ${fmtPct(eOk/smp.length)}`, sOk===smp.length && eOk/smp.length >= .98, `${smp.length}건 · 기준: 주소를 만든 실제 건물의 법정동(OSM) · 표본검수 시트`);
+    } else put("G2","G2-3","표본 100건 검수","시군구 100% · 읍면동 ≥ 98%", "정답표 없음", null, "실데이터는 운영 전환 기준 O2(담당자 검수)");
+    const unk = rows.filter(r => !r.sggCd || r.bjdHow==="주소정제"), why = unk.filter(r => cur.issues.some(i => i.id===r.id && i.cat==="주소정제"));
+    put("G2","G2-4","미매칭 사유 기재","미확정 건 100% 점검목록 등록", `${why.length}/${unk.length}건`, why.length===unk.length);
+
+    /* ---------------- G3 가격지표·리스크 지표 ---------------- */
+    msg("G3 지표 검산 중…");
+    const cls = rows.filter(r=>r.sggCd), idxOk = cls.filter(r=>r.idxLevel && r.idxLevel!=="없음");
+    put("G3","G3-1","가격지수 매핑률","보유 시군구 100%(상위 지역 대체 포함·표시)", fmtPct(idxOk.length/cls.length, 2), idxOk.length===cls.length, `시도 대체 ${cls.filter(r=>r.idxLevel==="시도 대체").length} · 상위 시 ${cls.filter(r=>r.idxLevel==="상위 시").length} · 동 프록시 ${cls.filter(r=>r.idxLevel==="동 프록시").length}`);
+    const coll = cls.filter(r=>r.src!=="투자부동산" && r.appr);
+    const hpr = rows.filter(r=>r.src==="주택연금" && r.sggCd && r.appr);
+    const parts = [
+      ["지수조정 LTV", coll.every(r=>r.adjLtv!=null), `${coll.filter(r=>r.adjLtv!=null).length}/${coll.length}`],
+      ["스트레스 시나리오", S.presets.length>=4 && S.presets.some(p=>p.scope==="top"), `${S.presets.length}종(지역 집중 포함)`],
+      ["조기경보", [...D.agg.g.values()].every(a=>a.ews!=null), `${D.agg.g.size}개 시군구`],
+      ["연금 교차시점", hpr.every(r=>r.cross), `${hpr.filter(r=>r.cross).length}/${hpr.length}`],
+      ["재평가 대상", true, `${rows.filter(r=>r.reap).length}건`],
+      ["이상치(전월 대비)", !!D.anom, D.anom ? `${D.anom.length}건` : "비교월 없음"],
+    ];
+    put("G3","G3-2","리스크 지표 산출","지수조정 LTV · 스트레스 3+지역집중 · 조기경보 · 연금 교차시점 · 재평가 · 이상치", parts.map(p=>`${p[0]} ${p[2]}`).join(" · "), parts.every(p=>p[1]));
+    // 10건 독립 검산
+    const K = S.pxK, dd = sampleOf(coll.filter(r=>r.ratio!=null), 10, R);
+    let calcOk = 0;
+    dd.forEach(r => {
+      const f = seriesFor(cur.prices, r.sggCd, r.type), aym = ymOfIso(r.apprDt);
+      const sr = !aym || aym >= base ? 1 : (f && f.s.get(aym) ? valAt(f.s, base) / f.s.get(aym) : null);
+      const w = r.dong?.cred ? r.dong.n/(r.dong.n+K) : 0, dr = r.dong?.cred ? r.dong.ratio : null;
+      const ratio = dr==null ? sr : sr==null ? dr : w*dr + (1-w)*sr;
+      const av = r.appr * (ratio ?? 1), al = r.src==="주택담보대출" ? (r.senior + r.expo)/av : r.expo/av;
+      const pop = MAP.popup(r), ok = Math.abs(av - r.adjVal) < 1 && Math.abs(al - r.adjLtv) < 1e-9 && pop.includes(fmtWon(av)) && pop.includes(fmtPct(al));
+      calcOk += ok;
+      det.검산.push([r.id, r.seq, r.src, r.appr, r.apprDt, ymLabel(base), r.idxLevel, sr!=null?+sr.toFixed(6):"", r.dong?.cred?+w.toFixed(4):0, +(ratio??1).toFixed(6), Math.round(av), Math.round(r.adjVal), +al.toFixed(6), +r.adjLtv.toFixed(6), ok?"일치":"불일치"]);
+    });
+    put("G3","G3-3","무작위 10건 검산","독립 산식 = 시스템 값 = 지도 팝업 표시값", `${calcOk}/${dd.length}건 일치`, calcOk===dd.length && dd.length>0, "검산표 시트");
+
+    /* ---------------- C1~C10 대시보드 기능 (지도 조작) ---------------- */
+    go("map"); await sleep(250); MAP.map.invalidateSize();
+    if(MAP.mode!=="pin") $('.m-mode button[data-mode="pin"]').click();
+    resetMapFilters(); await sleep(50);
+    const all = () => MAP.filteredNB;
+    // C1 검색
+    msg("C1 검색 확인 중…");
+    let c1 = 0, c1n = 0;
+    for(const r of sampleOf(rows.filter(r=>r.lat!=null), 5, R)){
+      for(const [lab, v] of [["주소", r.addr], ["명칭", r.name], ["관리번호", r.id]]){
+        if(!v) continue; c1n++;
+        const q = String(v).toLowerCase(); $("#q").value = v; MAP.F.q = q; MAP.render();
+        const m = MAP.markers.get(r), ll = m?.getLatLng();
+        const ok = MAP.filtered.includes(r) && MAP.filtered.every(x => `${x.addr} ${x.name} ${x.id} ${x.emd} ${x.sgg}`.toLowerCase().includes(q)) && ll && Math.abs(ll.lat-r.lat)<1e-9 && Math.abs(ll.lng-r.lng)<1e-9 && $("#mList").textContent.includes(r.name||r.id);
+        c1 += ok; det.기능.push(["C1", `${lab} '${v}'`, ok?"통과":"실패", `결과 ${MAP.filtered.length}건`]);
+      }
+    }
+    resetMapFilters();
+    put("C","C1","주소·부동산명·관리번호 검색","5건 × 3종: 결과 포함 · 지도 좌표 일치", `${c1}/${c1n}`, c1===c1n && c1n>0);
+    // C2 다중 필터
+    msg("C2 다중 필터 확인 중…");
+    const types = [...new Set(rows.map(r=>r.type))];
+    let c2 = 0, c2n = 0;
+    const combos = [[SRC.map(s=>s.k), types], ...SRC.flatMap(s => types.map(t => [[s.k],[t]])), [["주택담보대출","주택연금"], types.filter(t=>HOUSING.has(t))]];
+    for(const [ss, ts] of combos){
+      MAP.F.src = new Set(ss); MAP.F.types = new Set(ts); MAP.render();
+      const exp = mapped.filter(c => ss.includes(c.src) && ts.includes(c.type));
+      if(!exp.length && !MAP.filtered.length) continue;
+      c2n++; const got = MAP.filtered, ok = got.length===exp.length && totOf(got)===totOf(exp) && $("#mKpi .v").textContent===fmtWon(totOf(exp));
+      c2 += ok; if(!ok) det.기능.push(["C2", `${ss.join("+")} × ${ts.length>3?ts.length+"개 유형":ts.join("+")}`, "실패", `화면 ${got.length}건 ${fmtN(totOf(got))} / 피벗 ${exp.length}건 ${fmtN(totOf(exp))}`]);
+    }
+    resetMapFilters();
+    put("C","C2","원천구분·부동산유형 다중 필터","조합별 화면 건수·금액 = 통합테이블 피벗", `${c2}/${c2n}개 조합`, c2===c2n && c2n>0);
+    // C3 시도→시군구
+    msg("C3 시도→시군구 연동 확인 중…");
+    let c3 = 0, c3n = 0;
+    const sidos = [...new Set(mapped.map(c=>c.sido))].sort();
+    for(const sd of sidos){
+      c3n++;
+      const sel = $("#fSido"); sel.value = sd; sel.dispatchEvent(new Event("change")); await waitMove(700);
+      const opts = [...$("#fSgg").options].slice(1).map(o=>o.value).sort(), expS = [...new Set(mapped.filter(c=>c.sido===sd).map(c=>c.sgg))].sort();
+      const sg = opts[0]; $("#fSgg").value = sg; $("#fSgg").dispatchEvent(new Event("change")); await waitMove(900);
+      const b = MAP.map.getBounds().pad(.02), inb = all().every(r => b.contains([r.lat, r.lng]));
+      const ok = JSON.stringify(opts)===JSON.stringify(expS) && all().length>0 && all().every(r=>r.sido===sd && r.sgg===sg) && inb;
+      c3 += ok; det.기능.push(["C3", `${sd} → ${sg}`, ok?"통과":"실패", `시군구 목록 ${opts.length}/${expS.length} · 지도 범위 ${inb?"포함":"벗어남"}`]);
+    }
+    resetMapFilters();
+    put("C","C3","시도→시군구 연동 · 지역 이동","시군구 목록 = 데이터 · 지도 범위가 지역 포함", `${c3}/${c3n}개 시도`, c3===c3n && c3n>0);
+    // C4 리스크 조건
+    msg("C4 리스크 조건 확인 중…");
+    const y = +base.slice(0,4), mo = +base.slice(4), lim = `${y+1}-${String(mo).padStart(2,"0")}-${String(new Date(y, mo, 0).getDate()).padStart(2,"0")}`;
+    const L4 = rows.filter(r=>r.lat!=null);
+    const conds = [
+      ["지수조정 LTV ≥ 80%", F => { F.ltv = .8; F.basis = "adj"; }, r => r.adjLtv!=null && r.adjLtv >= .8],
+      ["평가시점 LTV ≥ 60%", F => { F.ltv = .6; F.basis = "raw"; }, r => r.ltv!=null && r.ltv >= .6],
+      ["요주의 이하 · 연체", F => { F.risk = true; }, r => r.dlq > 0 || ["요주의","고정","회수의문","추정손실"].includes(r.qlty)],
+      ["가격 하락지역", F => { F.decl = true; }, r => r.yoy!=null && r.yoy < 0],
+      ["1년 이내 만기", F => { F.mat = true; }, r => !!r.mat && r.mat <= lim],
+      ["조기경보 주의·경계", F => { F.ews = true; }, r => r.ews >= 2],
+      ["LTV ≥ 80% + 하락지역", F => { F.ltv = .8; F.basis = "adj"; F.decl = true; }, r => r.adjLtv >= .8 && r.yoy < 0],
+    ];
+    let c4 = 0;
+    for(const [lab, set, pred] of conds){
+      resetMapFilters(); set(MAP.F); MAP.render();
+      const exp = L4.filter(pred), ok = MAP.filtered.length===exp.length && totOf(MAP.filtered)===totOf(exp);
+      c4 += ok; det.기능.push(["C4", lab, ok?"통과":"실패", `화면 ${MAP.filtered.length}건 / 독립 산식 ${exp.length}건`]);
+    }
+    resetMapFilters();
+    put("C","C4","리스크 조건 필터","조건별 화면 건수·금액 = 독립 산식", `${c4}/${conds.length}개 조건`, c4===conds.length);
+    // C5 개별/지역 전환 · 줌 세분화
+    msg("C5 지역 집계 · 줌 세분화 확인 중…");
+    $('.m-mode button[data-mode="region"]').click();
+    const top = [...D.agg.g.values()].filter(a=>a.nll).sort((a,b)=>b.n-a.n)[0];
+    MAP.map.setView([36.3,127.8], 9, {animate:false}); await sleep(150); MAP.draw();
+    const nS = MAP.regionLayer.getLayers().length, eS = new Set(all().map(r=>r.sggCd)).size;
+    MAP.map.setView([top.lat, top.lng], 13, {animate:false}); await sleep(150); MAP.draw();
+    const nE = MAP.regionLayer.getLayers().length, eE = new Set(all().map(r=>`${r.sggCd}|${r.emd||"(읍면동 미상)"}`)).size, lgE = $("#mLegend").textContent.includes("읍면동");
+    MAP.map.setView([top.lat, top.lng], 11, {animate:false}); await sleep(150); MAP.draw();
+    const nS2 = MAP.regionLayer.getLayers().length;
+    $('.m-mode button[data-mode="pin"]').click();
+    const pinN = MAP.cluster.getLayers().length;
+    put("C","C5","개별 물건 / 지역 집계 전환 · 줌 세분화","줌 11 이하 시군구 원 · 12 이상 읍면동 원", `줌9 ${nS}/${eS} · 줌13 ${nE}/${eE} · 줌11 ${nS2}/${eS} · 개별 ${pinN}/${all().length}`, nS===eS && nE===eE && nS2===eS && lgE && pinN===all().length);
+    // C6 현 지도 영역
+    msg("C6 현 지도 영역 집계 확인 중…");
+    let c6 = 0; const areas = sampleOf([...D.agg.g.values()].filter(a=>a.nll), 2, R);
+    for(const a of areas){
+      resetMapFilters(); MAP.map.setView([a.lat, a.lng], 12, {animate:false}); await sleep(120);
+      $("#mInview").click();
+      const b = MAP.F.bounds, exp = L4.filter(r => b.contains([r.lat, r.lng]));
+      const ok = MAP.filtered.length===exp.length && totOf(MAP.filtered)===totOf(exp) && $("#mKpi .v").textContent===fmtWon(totOf(exp)) && $("#mCnt").textContent===exp.length.toLocaleString();
+      c6 += ok; det.기능.push(["C6", `${a.name} 부근(줌 12)`, ok?"통과":"실패", `화면 ${MAP.filtered.length}건 / 영역 안 ${exp.length}건`]);
+      $("#mInview").click();
+    }
+    const released = !MAP.F.bounds && MAP.filtered.length===L4.length;
+    put("C","C6","현 지도 영역 내 집계","영역 이동 후 요약 = 영역 안 건 합계 · 해제 시 전체 복귀", `${c6}/${areas.length}개 영역${released?" · 해제 정상":" · 해제 이상"}`, c6===areas.length && released);
+    // C7 목록 ↔ 지도
+    msg("C7 목록 ↔ 지도 연동 확인 중…");
+    resetMapFilters(); MAP.map.setView([36.3,127.8], 7, {animate:false}); MAP.render();
+    $('.stabs button[data-t="list"]').click();
+    let c7 = 0; const idxs = sampleOf([...Array(Math.min(100, MAP.filtered.length)).keys()], 5, R);
+    for(const i of idxs){
+      const r = MAP.filtered[i], li = $(`#mList .item[data-i="${i}"]`);
+      const wp = waitPopup(); li.click(); await wp; await sleep(80);
+      const p = MAP.map._popup, open = !!(p && MAP.map.hasLayer(p)), txt = open ? (p.getElement()?.textContent || "") : "";
+      const ok = open && txt.includes(r.id) && MAP.map.getBounds().contains([r.lat, r.lng]) && li.classList.contains("on");
+      c7 += ok; det.기능.push(["C7", `목록 ${i+1}번째 ${r.id}`, ok?"통과":"실패", open ? "팝업 열림" : "팝업 없음"]);
+      MAP.map.closePopup();
+    }
+    put("C","C7","목록 ↔ 지도 연동","목록 5건 클릭 → 지도 이동 · 상세 팝업 관리번호 일치", `${c7}/${idxs.length}`, c7===idxs.length && idxs.length>0);
+    // C8 집계표 정렬 · 지역 필터
+    msg("C8 지역 집계표 확인 중…");
+    resetMapFilters(); $('.stabs button[data-t="region"]').click();
+    const grp = new Map(); mapped.forEach(c => { const g = grp.get(c.sggCd) || {s0:0,s1:0,s2:0,tot:0}; g[c.src==="주택담보대출"?"s0":c.src==="투자부동산"?"s1":"s2"] += c.expo; g.tot += c.expo; grp.set(c.sggCd, g); });
+    const allT = sum([...grp.values()], g=>g.tot), byName = new Map([...D.agg.g.values()].map(a => [a.name, {...grp.get(a.k), share:(grp.get(a.k)?.tot||0)/allT, yoy:a.yoy, ews:a.ews, sido:a.sido, sgg:a.sgg}]));
+    let c8 = 0; const cols = ["name","s0","s1","s2","tot","share","yoy","ews"];
+    for(const k of cols){
+      $(`#mRgH th[data-k="${k}"]`).click();
+      const names = $$("#mRgB tr[data-i]").map(tr => tr.cells[0].textContent);
+      const vals = names.map(nm => k==="name" ? nm : (byName.get(nm)?.[k] ?? -9));
+      const ok = names.length===grp.size && vals.every((v,i) => i===0 || (k==="name" ? vals[i-1].localeCompare(v) <= 0 : vals[i-1] >= v - 1e-12));
+      c8 += ok; if(!ok) det.기능.push(["C8", `정렬 ${k}`, "실패", `${names.length}행`]);
+    }
+    $(`#mRgH th[data-k="tot"]`).click();
+    const tr2 = $$("#mRgB tr[data-i]")[1] || $$("#mRgB tr[data-i]")[0], nm2 = tr2.cells[0].textContent, tgt = byName.get(nm2);
+    tr2.click(); await waitMove(900);
+    const rowOk = MAP.F.sgg===tgt.sgg && MAP.F.sido===tgt.sido && $("#fSgg").value===tgt.sgg && all().every(r=>r.sgg===tgt.sgg) && totOf(all())===tgt.tot;
+    det.기능.push(["C8", `행 클릭 ${nm2}`, rowOk?"통과":"실패", `필터 ${MAP.F.sido} ${MAP.F.sgg} · ${all().length}건`]);
+    $('.stabs button[data-t="list"]').click(); resetMapFilters();
+    put("C","C8","시군구별 집계표 정렬 · 지역 필터","열 8개 정렬 순서 · 행 클릭 시 지역 필터·합계 일치", `정렬 ${c8}/${cols.length} · 행 클릭 ${rowOk?"정상":"이상"}`, c8===cols.length && rowOk);
+    // C9 점검사항 (의도적 오류 투입)
+    msg("C9 의도적 오류 데이터 투입 중…");
+    const raw2 = typeof structuredClone==="function" ? structuredClone(cur.raw) : clone(cur.raw);
+    const ln = raw2["1_주택담보대출"], seed = ln.find(r => num(r.ALLOC_RATIO)===1 || r.ALLOC_RATIO==null) || ln[0];
+    const mk = (id, patch) => { const r = {...seed, EXPO_ID:id, RE_SEQ:1, ALLOC_RATIO:1, ...patch}; ln.push(r); return r; };
+    const e1 = mk("LN-T901", {}); delete e1.BAL_AMT;
+    mk("LN-T902", {ALLOC_RATIO:.5});
+    mk("LN-T903", {}); mk("LN-T903", {});
+    const e4 = mk("LN-T904", {ROAD_ADDR:"없는시 없는구 무명로 1"}); ["BJD_CD","SIDO","SIGUNGU","EMD","LAT","LNG","JIBUN_ADDR"].forEach(k => delete e4[k]);
+    mk("LN-T905", {BASE_YM:"20269"});
+    const sn = processSnapshot(raw2, {ym:cur.ym, file:"인수시험", sample:cur.sample}, APP.dict);
+    const want = [["LN-T901","필수항목"],["LN-T902","배분비율"],["LN-T903","중복"],["LN-T904","주소정제"],["LN-T905","자릿수"]];
+    const hit = want.map(([id,cat]) => [id, cat, sn.issues.some(i => i.id===id && i.cat===cat && i.lv==="오류")]);
+    hit.forEach(([id,cat,ok]) => det.기능.push(["C9", `${id} ${cat}`, ok?"표시":"누락", ok ? sn.issues.find(i=>i.id===id&&i.cat===cat).msg : "-"]));
+    put("C","C9","점검사항(누락·오류) 표시","의도적 오류 5건 투입 → 전건 '오류'로 표시", `${hit.filter(h=>h[2]).length}/${want.length}건`, hit.every(h=>h[2]), "필수 누락 · 배분비율 · 중복 · 주소 미매칭 · 기준년월 자릿수");
+    // C10 기준월 비교 · 스트레스 · 조기경보 화면값
+    msg("C10 스트레스·조기경보·기준월 비교 검산 중…");
+    STR.d = null; renderStress();
+    const stressIndep = p => { const regs = p.scope==="top" ? (()=>{ const m = new Map(); cls.forEach(r=>m.set(r.sggCd,(m.get(r.sggCd)||0)+r.expo)); return new Set([...m].sort((a,b)=>b[1]-a[1]).slice(0,p.topN).map(x=>x[0])); })() : null;
+      const o = {"주택담보대출":0,"투자부동산":0,"주택연금":0};
+      cls.forEach(r => { const hitR = !regs || regs.has(r.sggCd), dr = hitR ? (["아파트","연립·다세대","단독·다가구","오피스텔"].includes(r.type) ? p.h : p.c)/100 : 0, v = (r.adjVal||0)*(1-dr);
+        o[r.src] += r.src==="주택담보대출" ? Math.max(0, r.senior + r.expo - v*(1-S.dispose/100)) : r.src==="투자부동산" ? r.expo*dr : Math.max(0, r.expo - v); });
+      return o; };
+    const sRows = $$("#sCmpT tbody tr");
+    let sOk = 0;
+    S.presets.forEach((p, i) => { const o = stressIndep(p), cells = sRows[i]?.cells; const tot = o["주택담보대출"]+o["투자부동산"]+o["주택연금"];
+      const ok = cells && cells[2].textContent===fmtWon(o["주택담보대출"]) && cells[3].textContent===fmtWon(o["투자부동산"]) && cells[4].textContent===fmtWon(o["주택연금"]) && cells[5].textContent===fmtWon(tot);
+      sOk += !!ok; det.검산.push([`스트레스 '${p.k}'`, "", "전체", "", "", ymLabel(base), "", "", "", "", Math.round(tot), "", "", "", ok?"일치":"불일치"]); });
+    renderEws();
+    const mid = S.presets.find(p=>p.k==="중간") || S.presets[1], midO = new Map();
+    cls.forEach(r => { const v = (r.adjVal||0)*(1-(HOUSING.has(r.type)?mid.h:mid.c)/100); const l = r.src==="주택담보대출" ? Math.max(0, r.senior + r.expo - v*(1-S.dispose/100)) : r.src==="주택연금" ? Math.max(0, r.expo - v) : 0; if(l>0) midO.set(r.sggCd, (midO.get(r.sggCd)||0)+l); });
+    const eRows = $$("#eT tbody tr"), eArr = [...D.agg.g.values()].sort((a,b)=>b.ews-a.ews || b.tot-a.tot);
+    let eOk = 0; const eSm = sampleOf(eArr.map((a,i)=>[a,i]), Math.min(10, eArr.length), R);
+    eSm.forEach(([a,i]) => {
+      const dsh = a.tot ? sum([...D.dong.values()].filter(d=>d.cd===a.k && d.grade>=1), d=>d.tot)/a.tot : 0;
+      const watch = (a.yoy!=null && a.yoy <= S.ewsWatchYoy/100) || a.streak >= S.ewsStreak || (dsh>0 && dsh >= S.dongPropagate/100);
+      const hiUp = a.prev && a.hiLtv > a.prev.hiLtv, share = (grp.get(a.k)?.tot||0)/allT;
+      const g = (a.yoy!=null && a.yoy <= S.ewsAlertYoy/100) || (midO.get(a.k)||0) > 0 ? 3 : watch && (share >= S.ewsShare/100 || hiUp) ? 2 : watch ? 1 : 0;
+      const ok = g===a.ews && eRows[i]?.cells[0].textContent.includes(EWS[g].name) && eRows[i]?.cells[1].textContent.startsWith(a.name);
+      eOk += !!ok; det.검산.push([`조기경보 ${a.name}`, "", "", "", "", ymLabel(base), a.idxLevel, a.yoy!=null?+a.yoy.toFixed(6):"", "", "", Math.round(midO.get(a.k)||0), "", g, a.ews, ok?"일치":"불일치"]); });
+    let cmpOk = null, cmpNote = "비교 기준월 없음";
+    if(D.cmp){
+      const pg = new Map(); D.cmp.rows.filter(r=>r.sggCd).forEach(r => pg.set(r.sggCd, (pg.get(r.sggCd)||0)+r.expo));
+      cmpOk = [...D.agg.g.values()].every(a => (a.prev?.tot ?? 0) === (pg.get(a.k) || 0)); cmpNote = `${ymLabel(D.cmp.ym)} 대비 시군구 ${D.agg.g.size}곳`;
+    }
+    put("C","C10","기준월 비교 · 스트레스 · 조기경보 표시","화면 값 = G3 독립 산식", `스트레스 ${sOk}/${S.presets.length} · 경보 ${eOk}/${eSm.length} · 전월비교 ${cmpOk==null?"-":cmpOk?"일치":"불일치"}`, sOk===S.presets.length && eOk===eSm.length && cmpOk!==false, cmpNote);
+
+    /* ---------------- G4 대시보드 ---------------- */
+    msg("G4 합계 대사 · 성능 측정 중…");
+    const cRes = res.filter(x=>x.g==="C");
+    put("G4","G4-1","기능 체크리스트 전 항목","C1~C10 모두 통과", `${cRes.filter(x=>x.ok).length}/${cRes.length}`, cRes.every(x=>x.ok));
+    go("map"); resetMapFilters();
+    const bySrcOk = SRC.every(s => totOf(MAP.filtered.filter(r=>r.src===s.k))===totOf(mapped.filter(c=>c.src===s.k)));
+    const { g: rg } = aggregate(MAP.filtered, "sgg", cur.prices, base), byRegOk = [...grp].every(([k,g]) => rg.get(k)?.tot===g.tot) && rg.size===grp.size;
+    const kpiOk = $("#mKpi .v").textContent===fmtWon(totOf(mapped));
+    put("G4","G4-2","대시보드 합계 = 통합테이블 합계","원천별 · 시군구별 차이 0원", `전체 ${kpiOk&&totOf(MAP.filtered)===totOf(mapped)?"0원":"차이"} · 원천 ${bySrcOk?"0원":"차이"} · 시군구 ${byRegOk?`${grp.size}곳 0원`:"차이"}`, kpiOk && bySrcOk && byRegOk && totOf(MAP.filtered)===totOf(mapped), `지도 대상 ${fmtN(totOf(mapped))}원 · 지역 미확정 ${C.length-mapped.length}건 제외(점검목록)`);
+    // 3,000건 성능
+    const big = {}, need = 3000, srcRows = SRC.flatMap(s => (cur.raw[s.sheet]||[]).map(r=>[s.sheet, r]));
+    SRC.forEach(s => big[s.sheet] = []); Object.keys(cur.raw).filter(k=>!SRC.some(s=>s.sheet===k)).forEach(k => big[k] = cur.raw[k]);
+    for(let k=0; SRC.reduce((t,s)=>t+big[s.sheet].length,0) < need; k++) for(const [sh, r] of srcRows){ big[sh].push({...r, EXPO_ID: r.EXPO_ID ? `${r.EXPO_ID}-${k}` : r.EXPO_ID, SRC_NO: r.SRC_NO!=null ? `${r.SRC_NO}-${k}` : r.SRC_NO}); if(SRC.reduce((t,s)=>t+big[s.sheet].length,0) >= need) break; }
+    const keep = {snaps:APP.snaps, cur:APP.cur, cmp:APP.cmp};
+    let tProc = 0, tDraw = 0, bigN = 0;
+    try{
+      const a0 = performance.now(); const bs = processSnapshot(big, {ym:"999912", file:"성능시험", sample:cur.sample}, APP.dict); tProc = performance.now() - a0; bigN = bs.rows.length;
+      APP.snaps = {"999912": bs}; APP.cur = "999912"; APP.cmp = null;
+      const a1 = performance.now(); refresh(); await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(r))); tDraw = performance.now() - a1;
+    } finally { Object.assign(APP, keep); refresh(); }
+    det.성능.push(["건수", bigN], ["표준화·주소정제·지수조정(ms)", Math.round(tProc)], ["집계·지도 표시(ms)", Math.round(tDraw)], ["합계(ms)", Math.round(tProc+tDraw)], ["브라우저", navigator.userAgent]);
+    put("G4","G4-3","3,000건 최초 표시","≤ 3초(개발 PC)", `${((tProc+tDraw)/1000).toFixed(2)}초`, bigN >= 3000 && tProc+tDraw <= 3000, `${bigN.toLocaleString()}건 · 처리 ${Math.round(tProc)}ms + 표시 ${Math.round(tDraw)}ms · 내부망 표준 PC는 O4에서 재측정`);
+
+    /* ---------------- G5 내부망 반입 준비 ---------------- */
+    msg("G5 보안·재현성 확인 중…");
+    const ext = performance.getEntriesByType("resource").map(e=>e.name).filter(u => !/^(data:|blob:)/.test(u) && !u.startsWith(location.origin));
+    const bound = (MAP.base||"bound")==="bound";
+    put("G5","G5-1","외부 자동 요청 0건","내부망판 + 내장 경계지도에서 0건", BUILD.offline ? `${ext.length}건` : `웹 버전 ${ext.length}건(CDN·배경지도)`, BUILD.offline ? ext.length===0 && bound : null, BUILD.offline ? (bound ? "빌드 시 정적 점검(build.py)도 0건" : "배경지도를 '경계지도(내장)'로 바꾼 뒤 다시 실행") : "웹 버전은 시연용 — 내부망판 html에서 실행해야 판정");
+    const PII = /(성명|실명|주민|연락처|전화|휴대|이메일|e-?mail|RRN|JUMIN|PHONE|TEL|CUST_NM|BIRTH|생년)/i;
+    const hdrs = new Set(); SRC.forEach(s => (cur.raw[s.sheet]||[]).slice(0,50).forEach(r => Object.keys(r).forEach(k=>hdrs.add(k))));
+    const bad = [...STD_COLS.map(c=>c[1]), ...hdrs].filter(h => PII.test(h));
+    put("G5","G5-2","고객 식별정보 미포함","통합테이블·원천 열에 실명·주민번호·연락처 없음", bad.length ? bad.join(", ") : "없음", bad.length===0, `원천 열 ${hdrs.size}개 · 통합테이블 열 ${STD_COLS.length}개 검사 · 고객번호만 사용`);
+    const yms = Object.keys(APP.snaps).sort();
+    const two = D.cmp && ymAdd(D.cmp.ym, 1)===base && D.cagg && D.cmp.rows.length>0;
+    put("G5","G5-3","2개 기준월 연속 적재","연속 2개월 스냅샷 보관 · 기준월 비교 정상", `${yms.map(ymLabel).join(", ")}${D.cmp?` · 비교 ${ymLabel(D.cmp.ym)}→${ymLabel(base)}`:""}`, !!two && cmpOk!==false, D.anom ? `전월 대비 이상치 ${D.anom.length}건 탐지` : "");
+    const re = processSnapshot(cur.raw, {ym:cur.ym, file:cur.file, sample:cur.sample}, APP.dict);
+    const sig = rs => hashStr(rs.map(r=>[r.id,r.seq,r.expo,r.bjd,r.lat,r.lng,Math.round(r.adjVal||0),r.adjLtv?.toFixed(9)].join("|")).join("\n"));
+    const h1 = sig(rows), h2 = sig(re.rows);
+    put("G5","G5-4","재현성","같은 입력 재실행 → 같은 결과", `${h1} / ${h2}`, h1===h2 && re.rows.length===rows.length && re.issues.length===cur.issues.length, `${re.rows.length}행 · 점검 ${re.issues.length}건 · 코드 버전 ${BUILD.built||"-"}`);
+  }catch(e){
+    console.error(e); put("오류","-","시험 실행 중 오류", "-", e.message, false, String(e.stack||"").split("\n")[1]||"");
+  }finally{
+    TEST.running = false; $("#tRun").disabled = false;
+    try{ resetMapFilters(); if(MAP.mode!==keepMode) $(`.m-mode button[data-mode="${keepMode}"]`).click(); }catch(e){}
+    TEST.res = res; TEST.detail = det; TEST.at = new Date(); TEST.ym = APP.D?.cur.ym; TEST.ms = performance.now() - t0;
+    $("#tExp").disabled = !res.length;
+    go(keepView==="test" ? "test" : "test");
+  }
+}
+function renderTest(){
+  const R = TEST.res;
+  if(!R){ $("#tTiles").innerHTML = ""; $("#tT").innerHTML = `<tbody><tr><td class="empty">아직 실행하지 않았습니다.</td></tr></tbody>`; $("#tDetail").hidden = true; return; }
+  const scope = R.filter(x=>x.ok!==null), pass = scope.filter(x=>x.ok).length;
+  const allOk = scope.length && pass===scope.length;
+  $("#tMsg").innerHTML = `${allOk ? "✅ 시제품 완료 기준 전 항목 통과" : `⚠ 미달 ${scope.length-pass}개 항목`} · ${ymLabel(TEST.ym)} 기준 · ${(TEST.ms/1000).toFixed(1)}초 소요. 판정 제외(해당 없음) 항목은 운영 전환 기준(4-4)이나 내부망판에서 확인합니다.`;
+  $("#tTiles").innerHTML = `
+    <div class="tile"><div class="l">판정 대상 통과율</div><div class="v">${fmtPct(scope.length?pass/scope.length:null,0)}</div><div class="s">${pass}/${scope.length}개 항목</div></div>
+    ${["G1","G2","G3","C","G4","G5"].map(g => { const a = R.filter(x=>x.g===g && x.ok!==null); return `<div class="tile"><div class="l">${g==="C"?"C1~C10 기능":g}</div><div class="v">${a.filter(x=>x.ok).length}/${a.length}</div><div class="s">${a.every(x=>x.ok)?"통과":"미달 있음"}${R.filter(x=>x.g===g&&x.ok===null).length?` · 제외 ${R.filter(x=>x.g===g&&x.ok===null).length}`:""}</div></div>`; }).join("")}`;
+  $("#tWhen").textContent = `${TEST.at.toLocaleString("ko-KR")} 실행`;
+  $("#tT").className = "t tres";
+  $("#tT").innerHTML = `<thead><tr><th class="l">구분</th><th class="l">항목</th><th class="l">기준</th><th class="l">측정값</th><th class="l">판정</th><th class="l">비고</th></tr></thead><tbody>` +
+    R.map(x=>`<tr><td class="l"><b>${esc(x.id)}</b></td><td class="l">${esc(x.item)}</td><td class="l wrap">${esc(x.crit)}</td><td class="l wrap">${esc(x.val)}</td><td class="l ${x.ok===null?"na":x.ok?"ok":"ng"}">${x.ok===null?"해당 없음":x.ok?"통과":"미달"}</td><td class="l wrap muted">${esc(x.note)}</td></tr>`).join("") + `</tbody>`;
+  const d = TEST.detail, el = $("#tDetail"); el.hidden = false;
+  el.innerHTML = `<h3>판정 근거 <small>결과표(xlsx)에 전체 포함</small></h3>
+    <div class="grid g2"><div><h4 style="margin:0 0 6px">무작위 검산 (지수조정 가치 · LTV)</h4><div class="tw" style="max-height:320px;overflow:auto"><table class="t"><thead><tr><th class="l">관리번호</th><th>평가금액</th><th>지수조정계수</th><th>독립 산식 가치</th><th>시스템 가치</th><th>판정</th></tr></thead><tbody>${d.검산.filter(x=>x[1]!=="").map(x=>`<tr><td class="l">${esc(x[0])}</td><td>${fmtWon(x[3])}</td><td>${x[9]}</td><td>${fmtN(x[10])}</td><td>${fmtN(x[11])}</td><td>${esc(x[14])}</td></tr>`).join("")}</tbody></table></div></div>
+    <div><h4 style="margin:0 0 6px">기능 시험 기록</h4><div class="tw" style="max-height:320px;overflow:auto"><table class="t"><thead><tr><th class="l">항목</th><th class="l">조작</th><th class="l">결과</th><th class="l">내용</th></tr></thead><tbody>${d.기능.map(x=>`<tr><td class="l">${esc(x[0])}</td><td class="l wrap">${esc(x[1])}</td><td class="l">${esc(x[2])}</td><td class="l wrap">${esc(x[3])}</td></tr>`).join("")}</tbody></table></div></div></div>`;
+}
+function exportAcceptance(){
+  if(!TEST.res) return;
+  const wb = XLSX.utils.book_new(), add = (name, aoa) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
+  const scope = TEST.res.filter(x=>x.ok!==null);
+  add("요약", [["부동산 통합 익스포저 관리 — 인수시험 결과 (상세기획서 v1.1 시제품 완료 기준)"], [], ["기준월", ymLabel(TEST.ym)], ["실행 시각", TEST.at.toLocaleString("ko-KR")], ["데이터", APP.D?.cur.file || ""], ["코드 빌드", BUILD.built || "-"], ["버전", BUILD.offline ? "내부망판" : "웹 버전"], ["판정 대상 통과", `${scope.filter(x=>x.ok).length}/${scope.length}`], ["판정 제외(해당 없음)", TEST.res.filter(x=>x.ok===null).length], [], ["※ 운영 전환 기준(4-4: 실데이터 대사, 부서 확인, 시연, 정보보호, 실 기준월 운영)은 이 시험 범위가 아님"]]);
+  add("판정결과", [["구분","항목","기준","측정값","판정","비고"], ...TEST.res.map(x=>[x.id, x.item, x.crit, x.val, x.ok===null?"해당 없음":x.ok?"통과":"미달", x.note])]);
+  add("검산표", [["관리번호","순번","원천","평가금액","평가일","기준월","지수구분","시군구 지수비율","동 가중치","적용 계수","독립 산식 가치(원)","시스템 가치(원)","독립 산식 LTV/등급","시스템 LTV/등급","판정"], ...TEST.detail.검산]);
+  add("표본검수", [["관리번호","순번","입력 주소","정답 법정동코드","정답 지역","시스템 법정동코드","시스템 지역","부여 방식","시군구","읍면동"], ...TEST.detail.표본]);
+  add("기능시험기록", [["항목","조작","결과","내용"], ...TEST.detail.기능]);
+  add("성능", [["항목","값"], ...TEST.detail.성능]);
+  const buf = XLSX.write(wb, {type:"array", bookType:"xlsx"});
+  download(`인수시험_결과_${TEST.ym}.xlsx`, new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+}
+
+/* =====================================================================
    15. 시작
    ===================================================================== */
 async function boot(){
@@ -2305,6 +3021,10 @@ async function boot(){
   $("#xXlsx").onclick = () => APP.D ? exportXlsx() : toast("데이터가 없습니다.");
   $("#xCsv").onclick = () => APP.D ? download(`부동산익스포저_${APP.D.cur.ym}_통합.csv`, new Blob(["﻿"+csvText()], {type:"text/csv"})) : toast("데이터가 없습니다.");
   $("#xCsvCopy").onclick = () => APP.D && copyText(csvText(), "통합테이블 csv");
+  $("#xPdf").onclick = () => APP.D ? printReport() : toast("데이터가 없습니다.");
+  $("#xHtml").onclick = () => APP.D ? download(`부동산익스포저_${APP.D.cur.ym}_분기리포트.html`, new Blob([reportDoc()], {type:"text/html"})) : toast("데이터가 없습니다.");
+  $("#tRun").onclick = () => runAcceptance();
+  $("#tExp").onclick = () => exportAcceptance();
   $("#rCopy").onclick = () => copyText($("#rTxt").value, "보고서 초안");
   $("#rRegen").onclick = () => { if(APP.D) $("#rTxt").value = reportText(); };
   $("#setReset").onclick = () => { APP.set = clone(DEFAULTS); saveSettings(); renderSettings(); };
