@@ -440,9 +440,9 @@ svg.flow{display:block;width:100%;min-width:920px;height:auto}
 
     <!-- ===================== 개별 위험 ===================== -->
     <section class="view" id="v-risk" role="tabpanel" hidden><div class="page">
-      <div class="page-h"><div><h2>개별 위험 관리</h2><p>주택연금 잔액이 주택가격을 넘는 예상 시점, 평가가 오래됐거나 지수 변동이 커서 다시 평가해야 할 담보, 전월 대비 값이 급하게 바뀐 이상치를 모아 봅니다. 행을 누르면 지도에서 해당 물건을 엽니다. 기준값은 데이터·내보내기 → 설정에서 바꿉니다.</p></div></div>
+      <div class="page-h"><div><h2>개별 위험 관리</h2><p id="rkDesc">주택연금 잔액이 주택가격을 넘는 예상 시점, 평가가 오래됐거나 지수 변동이 커서 다시 평가해야 할 담보, 전월 대비 값이 급하게 바뀐 이상치를 모아 봅니다. 행을 누르면 지도에서 해당 물건을 엽니다. 기준값은 데이터·내보내기 → 설정에서 바꿉니다.</p></div></div>
       <div class="tiles" id="rkTiles"></div>
-      <div class="card"><h3>주택연금 예상 교차시점 <small id="rkCrossNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkCrossT"></table></div></div>
+      <div class="card" id="rkCrossCard"><h3>주택연금 예상 교차시점 <small id="rkCrossNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkCrossT"></table></div></div>
       <div class="card"><h3>재평가 대상 <small id="rkReapNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkReapT"></table></div></div>
       <div class="card"><h3>이상치 — 전월 대비 급변 <small id="rkAnomNote"></small></h3><div class="tw" style="max-height:460px;overflow:auto"><table class="t" id="rkAnomT"></table></div></div>
     </div></section>
@@ -599,6 +599,10 @@ const EWS = [
    true  → 시군구 KB 지수 결합 · 상위 시/시도 대체 · 동·시군구 신뢰도 가중 혼합이 모두 되살아남 */
 const USE_KB = false;
 const SGG_LBL = USE_KB ? "시군구 KB" : "시군구(동 가중)";   // 화면 표기: 동 변동과 비교하는 시군구 값
+/* 주택연금 예상 교차시점: 당분간 쓰지 않음.
+   false → 계산·개별 위험 화면·지도 팝업·통합테이블 열·xlsx 시트·보고서·설정·인수시험 항목에서 모두 빠짐.
+   true  → 그대로 되살아남 */
+const USE_HP_CROSS = false;
 const DEFAULTS = {
   ewsWatchYoy:-3, ewsStreak:3, ewsShare:3, ewsLtv:80, ewsAlertYoy:-10,
   hpHigh:60, ltvHigh:80, dispose:10, vworldKey:"",
@@ -1269,7 +1273,7 @@ function derive(){
     a.ews = alert ? 3 : caution ? 2 : watch ? 1 : 0; a.why = why; a.sf = sfAmt;
     a.prev = cagg?.g.get(a.k) || null;
   }
-  rows.forEach(r => { r.ews = agg.g.get(r.sggCd)?.ews ?? 0; r.cross = r.src==="주택연금" ? crossPoint(r, cur.ym, st) : null; r.reap = reapReason(r, cur.ym, st); });
+  rows.forEach(r => { r.ews = agg.g.get(r.sggCd)?.ews ?? 0; r.cross = USE_HP_CROSS && r.src==="주택연금" ? crossPoint(r, cur.ym, st) : null; r.reap = reapReason(r, cur.ym, st); });
   const anom = detectAnomalies(rows, cmp?.rows, st);
   APP.D = {cur, cmp, rows, agg, cagg, midRes, mid, dong, anom};
 }
@@ -2228,7 +2232,7 @@ function renderData(){
   $("#rTxt").value = APP.D ? reportText() : "";
   renderSettings();
 }
-const STD_COLS = [["ym","기준년월"],["id","관리번호"],["seq","부동산순번"],["src","원천구분"],["srcNo","원천식별번호"],["name","부동산명"],["type","부동산유형"],["addr","도로명주소"],["sido","시도"],["sgg","시군구"],["emd","읍면동"],["bjd","법정동코드"],["sggCd","시군구코드"],["bjdHow","지역부여방식"],["lat","위도"],["lng","경도"],["geo","좌표정확도"],["area","면적(㎡)"],["appr","평가금액"],["apprSrc","평가구분"],["apprDt","평가일"],["expo","익스포저"],["bal","대출잔액"],["alloc","배분비율"],["senior","선순위금액"],["mort","근저당설정금액"],["fv","공정가치"],["book","장부금액"],["share","지분율"],["gain","평가손익"],["paid","지급누계"],["intc","이자누계"],["fee","기타비용누계"],["ltv","LTV(평가시점)"],["idxLevel","지수구분"],["ratio","지수조정계수"],["adjVal","지수조정가치"],["adjLtv","지수조정LTV"],["qlty","건전성"],["dlq","연체일수"],["mat","만기일"],["yoy","지역지수 전년대비"],["mom","지역지수 전월대비"],["sggYoy","시군구KB 전년대비"],["dYoy","동프록시 전년대비"],["dN","동프록시 표본수"],["dW","동프록시 가중치"],["ews","조기경보등급"],["age","가입자연령대"],["cross","연금 예상교차시점"],["reap","재평가 사유"]];
+const STD_COLS = [["ym","기준년월"],["id","관리번호"],["seq","부동산순번"],["src","원천구분"],["srcNo","원천식별번호"],["name","부동산명"],["type","부동산유형"],["addr","도로명주소"],["sido","시도"],["sgg","시군구"],["emd","읍면동"],["bjd","법정동코드"],["sggCd","시군구코드"],["bjdHow","지역부여방식"],["lat","위도"],["lng","경도"],["geo","좌표정확도"],["area","면적(㎡)"],["appr","평가금액"],["apprSrc","평가구분"],["apprDt","평가일"],["expo","익스포저"],["bal","대출잔액"],["alloc","배분비율"],["senior","선순위금액"],["mort","근저당설정금액"],["fv","공정가치"],["book","장부금액"],["share","지분율"],["gain","평가손익"],["paid","지급누계"],["intc","이자누계"],["fee","기타비용누계"],["ltv","LTV(평가시점)"],["idxLevel","지수구분"],["ratio","지수조정계수"],["adjVal","지수조정가치"],["adjLtv","지수조정LTV"],["qlty","건전성"],["dlq","연체일수"],["mat","만기일"],["yoy","지역지수 전년대비"],["mom","지역지수 전월대비"],["sggYoy","시군구KB 전년대비"],["dYoy","동프록시 전년대비"],["dN","동프록시 표본수"],["dW","동프록시 가중치"],["ews","조기경보등급"],["age","가입자연령대"],["cross","연금 예상교차시점"],["reap","재평가 사유"]].filter(([k]) => USE_HP_CROSS || k!=="cross");
 function stdRow(r){ return STD_COLS.map(([k]) => k==="ews" ? EWS[r.ews].name : k==="cross" ? (r.cross ? (r.cross.ym || "가정기간 내 없음") : "") : k==="dYoy" ? (r.dong?.yoy!=null ? +r.dong.yoy.toFixed(6) : "") : k==="dN" ? (r.dong?.n ?? "") : k==="dW" ? (r.dong ? (r.dong.cred ? +r.dong.w.toFixed(4) : 0) : "") : k==="sggYoy" ? (r.sggYoy!=null ? +r.sggYoy.toFixed(6) : "") : (typeof r[k]==="number" && ["ltv","adjLtv","ratio","yoy","mom","alloc","share"].includes(k)) ? +r[k].toFixed(6) : r[k] ?? ""); }
 function csvText(){
   const q = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
@@ -2247,7 +2251,7 @@ function exportXlsx(){
   const sc = APP.set.presets.map(p => ({p, r:runStress(D.rows, stressParams({h:p.h,c:p.c,d:APP.set.dispose,scope:p.scope,topN:p.topN,picked:new Set()}))}));
   add("스트레스", [["시나리오","주택하락률","상업용하락률","처분비용률","범위","주담대 담보부족","투자 평가손실","연금 담보부족","합계","LTV80초과 건","LTV100초과 건"], ...sc.map(({p,r})=>[p.k,p.h/100,p.c/100,APP.set.dispose/100,p.scope==="top"?`상위 ${p.topN}개 시군구`:"전국",Math.round(r.src["주택담보대출"].loss),Math.round(r.src["투자부동산"].loss),Math.round(r.src["주택연금"].loss),Math.round(r.total),r.ltv80.n,r.ltv100.n])]);
   add("점검사항", [["수준","분류","원천","관리번호","내용"], ...D.cur.issues.map(i=>[i.lv,i.cat,i.src,i.id,i.msg])]);
-  add("연금교차시점", [["계약번호","시도","시군구","읍면동","대출잔액","지수조정 주택가격","잔액비율","월지급금","대출한도","예상 교차시점","남은 개월"], ...D.rows.filter(r=>r.src==="주택연금"&&r.cross).sort((a,b)=>(a.cross.m??1e9)-(b.cross.m??1e9)).map(r=>[r.id,r.sido,r.sgg,r.emd,r.expo,Math.round(r.adjVal||0),r.adjLtv!=null?+r.adjLtv.toFixed(6):"",r.mpay,r.limit??"",r.cross.ym||"가정기간 내 없음",r.cross.m??""])]);
+  if(USE_HP_CROSS) add("연금교차시점", [["계약번호","시도","시군구","읍면동","대출잔액","지수조정 주택가격","잔액비율","월지급금","대출한도","예상 교차시점","남은 개월"], ...D.rows.filter(r=>r.src==="주택연금"&&r.cross).sort((a,b)=>(a.cross.m??1e9)-(b.cross.m??1e9)).map(r=>[r.id,r.sido,r.sgg,r.emd,r.expo,Math.round(r.adjVal||0),r.adjLtv!=null?+r.adjLtv.toFixed(6):"",r.mpay,r.limit??"",r.cross.ym||"가정기간 내 없음",r.cross.m??""])]);
   add("재평가대상", [["관리번호","원천","부동산명","시도","시군구","평가금액","평가일","지수조정계수","사유"], ...D.rows.filter(r=>r.reap).map(r=>[r.id,r.src,r.name,r.sido,r.sgg,r.appr??"",r.apprDt||"",r.ratio!=null?+r.ratio.toFixed(6):"",r.reap])]);
   if(D.anom) add("이상치_전월대비", [["관리번호","부동산순번","원천","부동산명","시군구","사유"], ...D.anom.map(a=>[a.r.id,a.r.seq,a.r.src,a.r.name,a.r.sgg,a.why.join(" · ")])]);
   const buf = XLSX.write(wb, {type:"array", bookType:"xlsx"});
@@ -2272,7 +2276,7 @@ function reportText(){
     `2. 집중도: 익스포저 상위 10개 시군구 비중 ${fmtPct(t10)}, 지역 HHI ${Math.round(H*1e4)}. 최대 지역은 ${arr[0]?.name||"-"}(${fmtPct(arr[0]?.share)}), 이어서 ${arr.slice(1,3).map(a=>`${a.name}(${fmtPct(a.share)})`).join(", ")}.`,
     `3. 가격 연계: 가격지수가 전년 대비 하락한 ${new Set(decl.map(r=>r.sggCd)).size}개 시군구에 ${fmtWon(declAmt)}원(${fmtPct(tot?declAmt/tot:null)})이 걸려 있음. 하락폭이 큰 지역은 ${arr.filter(a=>a.yoy!=null).sort((a,b)=>a.yoy-b.yoy).slice(0,3).map(a=>`${a.name} ${fmtChg(a.yoy)}`).join(", ")}.`,
     `4. 개별 위험(주담대): 지수조정 LTV ${APP.set.ltvHigh}% 초과 ${hi.length}건 ${fmtWon(sum(hi,r=>r.expo))}원, 요주의 이하·연체 ${bad.length}건 ${fmtWon(sum(bad,r=>r.expo))}원, 1년 이내 만기 ${mat.length}건 ${fmtWon(sum(mat,r=>r.expo))}원.`,
-    `5. 주택연금: 잔액 ÷ 지수조정 주택가격 ${APP.set.hpHigh}% 이상 ${hpHi.length}건 (전체 ${hp.length}건). 잔액이 주택가격을 넘는 예상 시점(금리 ${APP.set.hpRate}%·주택가격 연 ${APP.set.hpHpi}% 가정)이 5년 이내 ${hp.filter(r=>r.cross?.m!=null&&r.cross.m<=60).length}건, 10년 이내 ${hp.filter(r=>r.cross?.m!=null&&r.cross.m<=120).length}건.`,
+    `5. 주택연금: 잔액 ÷ 지수조정 주택가격 ${APP.set.hpHigh}% 이상 ${hpHi.length}건 (전체 ${hp.length}건).${USE_HP_CROSS ? ` 잔액이 주택가격을 넘는 예상 시점(금리 ${APP.set.hpRate}%·주택가격 연 ${APP.set.hpHpi}% 가정)이 5년 이내 ${hp.filter(r=>r.cross?.m!=null&&r.cross.m<=60).length}건, 10년 이내 ${hp.filter(r=>r.cross?.m!=null&&r.cross.m<=120).length}건.` : ""}`,
     `6. 스트레스('${mid.k}', 주택 −${mid.h}%·상업용 −${mid.c}%, 처분비용 ${APP.set.dispose}%): 주담대 담보부족 ${fmtWon(mr.src["주택담보대출"].loss)}원, 투자부동산 평가손실 ${fmtWon(mr.src["투자부동산"].loss)}원, 주택연금 담보부족 ${fmtWon(mr.src["주택연금"].loss)}원, 합계 ${fmtWon(mr.total)}원.`,
     `7. 조기경보: 경계 ${e3.length}곳${e3.length?`(${e3.slice(0,5).map(a=>a.name).join(", ")})`:""}, 주의 ${e2.length}곳${e2.length?`(${e2.slice(0,5).map(a=>a.name).join(", ")})`:""}.`,
     ...(D.dong.size ? [`8. 동 가격 프록시: ${rows.filter(r=>r.dong?.cred).length}건에 동 지수 반영. ${SGG_LBL} 변동으로는 보이지 않는 하락 동 ${[...D.dong.values()].filter(a=>a.hidden).length}곳${[...D.dong.values()].filter(a=>a.hidden).length?`(${[...D.dong.values()].filter(a=>a.hidden).sort((a,b)=>b.tot-a.tot).slice(0,4).map(a=>`${a.sgg} ${a.emd} ${a.type} ${fmtChg(a.d.yoy)}`).join(", ")})`:""}, 익스포저 ${fmtWon(sum([...D.dong.values()].filter(a=>a.hidden),a=>a.tot))}원.`] : []),
@@ -2289,7 +2293,7 @@ const SET_FIELDS = [
   ["pxMinN","동 프록시 최소 표본수(이동평균 기간 합)"],["pxK","동 프록시 가중 k (w = n÷(n+k))"],["pxWindow","동 평균가 이동평균(개월)"],["dongPropagate","하락 동 익스포저 비중 → 시군구 관찰(%)"],
   ["hpRate","주택연금 대출금리(연 %)"],["hpHpi","주택가격 상승률 가정(연 %)"],["hpHorizon","교차시점 계산 기간(년)"],["reapMonths","재평가: 평가 후 경과(개월)"],["reapChg","재평가: 지수 변동(±%)"],
   ["anomAppr","이상치: 평가금액·익스포저 변동(%)"],["anomLtv","이상치: LTV 변동(%p)"],["anomKm","이상치: 좌표 이동(km)"],
-];
+].filter(([k]) => USE_HP_CROSS || !["hpRate","hpHpi","hpHorizon"].includes(k));
 function renderSettings(){
   const s = APP.set;
   $("#setGrid").innerHTML = SET_FIELDS.map(([k,l])=>`<label for="set-${k}">${l}<input id="set-${k}" type="number" step="0.5" value="${s[k]}"></label>`).join("") +
@@ -2352,11 +2356,11 @@ function renderGuide(){
   <table class="t"><thead><tr><th class="l">게이트</th><th class="l">자동 판정 내용</th><th class="l">관련 화면</th></tr></thead><tbody>
   <tr><td class="l">G1 데이터 표준화</td><td class="l wrap">파일 행 수 = 통합테이블 행 수, 업로드 합계 대사 0원</td><td class="l wrap">데이터·내보내기, 점검</td></tr>
   <tr><td class="l">G2 주소정제·지오코딩</td><td class="l wrap">법정동 98% · 건물 좌표 95% · 표본 100건(시군구 100% · 읍면동 98%) · 미매칭 사유 100%</td><td class="l wrap">점검·주소정제</td></tr>
-  <tr><td class="l">G3 가격지표·리스크 지표</td><td class="l wrap">지수 매핑 100%, 지수조정 LTV·스트레스·조기경보·연금 교차시점·재평가·이상치 산출, 10건 독립 검산</td><td class="l wrap">지도 팝업, 스트레스, 조기경보, 개별 위험</td></tr>
+  <tr><td class="l">G3 가격지표·리스크 지표</td><td class="l wrap">지수 매핑 100%, 지수조정 LTV·스트레스·조기경보·${USE_HP_CROSS?"연금 교차시점·":""}재평가·이상치 산출, 10건 독립 검산</td><td class="l wrap">지도 팝업, 스트레스, 조기경보, 개별 위험</td></tr>
   <tr><td class="l">G4 대시보드</td><td class="l wrap">기능 체크리스트 C1~C10 자동 조작 시험, 화면 합계 = 통합테이블(원천·시군구), 3,000건 3초 이내</td><td class="l wrap">지도, 집중도·비교</td></tr>
   <tr><td class="l">G5 내부망 반입 준비</td><td class="l wrap">내부망판 외부 요청 0건, 식별정보 열 없음, 2개 기준월 연속 비교, 같은 입력 같은 결과</td><td class="l wrap">데이터·내보내기, 내부망판 html</td></tr></tbody></table>
   <h3>개별 위험 산식</h3>
-  <ul><li>주택연금 예상 교차시점: 매월 잔액 = 전월 잔액 × (1 + 연 금리 ÷ 12) + 월지급금(대출한도에 닿으면 지급 중단), 주택가격 = 지수조정 가치 × (1 + 연 상승률 가정)^(개월 ÷ 12). 잔액이 주택가격 이상이 되는 첫 달.</li>
+  <ul>${USE_HP_CROSS?`<li>주택연금 예상 교차시점: 매월 잔액 = 전월 잔액 × (1 + 연 금리 ÷ 12) + 월지급금(대출한도에 닿으면 지급 중단), 주택가격 = 지수조정 가치 × (1 + 연 상승률 가정)^(개월 ÷ 12). 잔액이 주택가격 이상이 되는 첫 달.</li>`:""}
   <li>재평가 대상: 평가 후 경과 개월이 기준 이상이거나, 평가월 이후 지수 변동(지수조정 계수 − 1)이 ±기준% 이상.</li>
   <li>이상치: 같은 관리번호·순번의 전월 값 대비 평가금액·익스포저 변동, LTV 변동(%p), 좌표 이동(km), 시군구 변경.</li></ul>
   <p class="muted">빌드 ${esc(BUILD.built||"-")} · ${BUILD.offline?"내부망용(라이브러리 내장)":"웹 버전(라이브러리 CDN)"} · 행정구역 경계: 통계청 SGIS(2018, 공공누리 1유형) · 행정동 대표점: 2023.07 기준 · 샘플의 실제 주소·건물 좌표: © OpenStreetMap 기여자(ODbL) — 금액·고객·담보 내용은 모두 가상</p>`;
@@ -2633,21 +2637,25 @@ function openRow(r){
 function renderRisk(){
   const D = APP.D; if(!D) return emptyPage();
   const S = APP.set;
+  $("#rkCrossCard").hidden = !USE_HP_CROSS;
+  if(!USE_HP_CROSS) $("#rkDesc").textContent = "평가가 오래됐거나 지수 변동이 커서 다시 평가해야 할 담보, 전월 대비 값이 급하게 바뀐 이상치를 모아 봅니다. 행을 누르면 지도에서 해당 물건을 엽니다. 기준값은 데이터·내보내기 → 설정에서 바꿉니다.";
   const hp = D.rows.filter(r => r.src==="주택연금" && r.cross);
   const cr = hp.filter(r => r.cross.m!=null).sort((a,b)=>a.cross.m-b.cross.m || b.expo-a.expo);
   const by = m => cr.filter(r => r.cross.m <= m);
   const reap = D.rows.filter(r => r.reap).sort((a,b)=>b.expo-a.expo);
   const an = D.anom;
-  $("#rkTiles").innerHTML = `
+  $("#rkTiles").innerHTML = (USE_HP_CROSS ? `
     <div class="tile"><div class="l">연금 교차 · 이미 초과</div><div class="v">${by(0).length}건</div><div class="s">잔액 ${fmtWon(sum(by(0),r=>r.expo))}</div></div>
-    <div class="tile"><div class="l">연금 교차 · 5년 이내</div><div class="v">${by(60).length}건</div><div class="s">10년 이내 ${by(120).length}건 · 전체 ${hp.length}건</div></div>
+    <div class="tile"><div class="l">연금 교차 · 5년 이내</div><div class="v">${by(60).length}건</div><div class="s">10년 이내 ${by(120).length}건 · 전체 ${hp.length}건</div></div>` : "") + `
     <div class="tile"><div class="l">재평가 대상</div><div class="v">${reap.length}건</div><div class="s">익스포저 ${fmtWon(sum(reap,r=>r.expo))}</div></div>
     <div class="tile"><div class="l">전월 대비 이상치</div><div class="v">${an ? an.length+"건" : "-"}</div><div class="s">${an ? `${ymLabel(D.cmp.ym)} 대비` : "비교 기준월 없음"}</div></div>`;
+  if(USE_HP_CROSS){
   $("#rkCrossNote").textContent = `가정: 대출금리 연 ${S.hpRate}% · 주택가격 연 ${S.hpHpi>=0?"+":""}${S.hpHpi}% · 월지급금 계속(지급중, 대출한도 도달 시 중단) · 최대 ${S.hpHorizon}년`;
   $("#rkCrossT").innerHTML = `<thead><tr><th class="l">계약번호</th><th class="l">지역</th><th>대출잔액</th><th>지수조정 주택가격</th><th>잔액비율</th><th>월지급금</th><th>대출한도</th><th class="l">예상 교차시점</th></tr></thead><tbody>` +
     ([...cr, ...hp.filter(r=>r.cross.m==null)].slice(0,300).map((r,i)=>`<tr class="click" data-i="${i}"><td class="l">${esc(r.id)}</td><td class="l">${esc(`${SIDO_SHORT[r.sido]||r.sido} ${r.sgg} ${r.emd||""}`)}</td><td>${fmtWon(r.expo)}</td><td>${fmtWon(r.adjVal)}</td><td>${fmtPct(r.adjLtv)}</td><td>${fmtWon(r.mpay)}</td><td>${fmtWon(r.limit)}</td><td class="l">${crossLabel(r.cross)}</td></tr>`).join("") || `<tr><td colspan="8" class="empty">주택연금 건이 없습니다.</td></tr>`) + `</tbody>`;
   const crl = [...cr, ...hp.filter(r=>r.cross.m==null)];
   $$("#rkCrossT tbody tr[data-i]").forEach(tr => tr.onclick = () => openRow(crl[+tr.dataset.i]));
+  }
   $("#rkReapNote").textContent = `평가 후 ${S.reapMonths}개월 이상 또는 평가월 이후 지수 변동 ±${S.reapChg}% 이상 · 평가금액·평가일 없음`;
   $("#rkReapT").innerHTML = `<thead><tr><th class="l">관리번호</th><th class="l">원천</th><th class="l">부동산명</th><th class="l">지역</th><th>평가금액</th><th class="l">평가일</th><th>익스포저</th><th class="l">사유</th></tr></thead><tbody>` +
     (reap.slice(0,300).map((r,i)=>`<tr class="click" data-i="${i}"><td class="l">${esc(r.id)}</td><td class="l">${SRC_BY[r.src].short}</td><td class="l">${esc(r.name||"-")}</td><td class="l">${esc(r.sgg)}</td><td>${fmtWon(r.appr)}</td><td class="l">${esc(r.apprDt||"-")}</td><td>${fmtWon(r.expo)}</td><td class="l wrap">${esc(r.reap)}</td></tr>`).join("") || `<tr><td colspan="8" class="empty">재평가 대상이 없습니다.</td></tr>`) + `</tbody>`;
@@ -2674,7 +2682,7 @@ function reportHtml(){
     <h2>익스포저 상위 10개 시군구</h2>${tb(["지역","주담대","투자","연금","합계","비중","지수 전년대비","조기경보"], arr.slice(0,10).map(a=>[a.name,fmtWon(a.by["주택담보대출"]||0),fmtWon(a.by["투자부동산"]||0),fmtWon(a.by["주택연금"]||0),fmtWon(a.tot),fmtPct(a.share),fmtChg(a.yoy),EWS[a.ews].name]))}
     <h2>조기경보 주의 · 경계 지역</h2>${arr.filter(a=>a.ews>=2).length ? tb(["등급","지역","익스포저","비중","근거"], arr.filter(a=>a.ews>=2).sort((a,b)=>b.ews-a.ews||b.tot-a.tot).map(a=>[EWS[a.ews].name,a.name,fmtWon(a.tot),fmtPct(a.share),a.why.join(" · ")])) : "<p>해당 지역 없음</p>"}
     <h2>스트레스 시나리오</h2>${tb(["시나리오","가정","주담대 담보부족","투자 평가손실","연금 담보부족","합계"], sc.map(({p,r})=>[p.k,`주택 −${p.h}% · 상업 −${p.c}%${p.scope==="top"?` · 상위 ${p.topN}곳`:""}`,fmtWon(r.src["주택담보대출"].loss),fmtWon(r.src["투자부동산"].loss),fmtWon(r.src["주택연금"].loss),fmtWon(r.total)]))}
-    <h2>주택연금 예상 교차시점 (빠른 순 10건)</h2>${hp.length ? tb(["계약번호","지역","대출잔액","지수조정 주택가격","잔액비율","예상 교차시점"], hp.slice(0,10).map(r=>[String(r.id),`${r.sgg} ${r.emd||""}`,fmtWon(r.expo),fmtWon(r.adjVal),fmtPct(r.adjLtv),r.cross.m===0?"이미 초과":ymLabel(r.cross.ym)])) : "<p>가정 기간 안에 교차하는 건 없음</p>"}
+    ${USE_HP_CROSS ? `<h2>주택연금 예상 교차시점 (빠른 순 10건)</h2>${hp.length ? tb(["계약번호","지역","대출잔액","지수조정 주택가격","잔액비율","예상 교차시점"], hp.slice(0,10).map(r=>[String(r.id),`${r.sgg} ${r.emd||""}`,fmtWon(r.expo),fmtWon(r.adjVal),fmtPct(r.adjLtv),r.cross.m===0?"이미 초과":ymLabel(r.cross.ym)])) : "<p>가정 기간 안에 교차하는 건 없음</p>"}` : ""}
     <p class="muted" style="margin-top:12pt">지수조정 가치 = 평가금액 × (기준월 지수 ÷ 평가월 지수). 수치는 통합테이블에서 바로 인용했으며 검토 후 사용합니다.</p>`;
 }
 function reportDoc(){
@@ -2773,11 +2781,11 @@ async function runAcceptance(){
       ["지수조정 LTV", coll.every(r=>r.adjLtv!=null), `${coll.filter(r=>r.adjLtv!=null).length}/${coll.length}`],
       ["스트레스 시나리오", S.presets.length>=4 && S.presets.some(p=>p.scope==="top"), `${S.presets.length}종(지역 집중 포함)`],
       ["조기경보", [...D.agg.g.values()].every(a=>a.ews!=null), `${D.agg.g.size}개 시군구`],
-      ["연금 교차시점", hpr.every(r=>r.cross), `${hpr.filter(r=>r.cross).length}/${hpr.length}`],
+      ...(USE_HP_CROSS ? [["연금 교차시점", hpr.every(r=>r.cross), `${hpr.filter(r=>r.cross).length}/${hpr.length}`]] : []),
       ["재평가 대상", true, `${rows.filter(r=>r.reap).length}건`],
       ["이상치(전월 대비)", !!D.anom, D.anom ? `${D.anom.length}건` : "비교월 없음"],
     ];
-    put("G3","G3-2","리스크 지표 산출","지수조정 LTV · 스트레스 3+지역집중 · 조기경보 · 연금 교차시점 · 재평가 · 이상치", parts.map(p=>`${p[0]} ${p[2]}`).join(" · "), parts.every(p=>p[1]));
+    put("G3","G3-2","리스크 지표 산출",`지수조정 LTV · 스트레스 3+지역집중 · 조기경보 · ${USE_HP_CROSS?"연금 교차시점 · ":""}재평가 · 이상치`, parts.map(p=>`${p[0]} ${p[2]}`).join(" · "), parts.every(p=>p[1]));
     // 10건 독립 검산
     const K = S.pxK, dd = sampleOf(coll.filter(r=>r.ratio!=null), 10, R);
     let calcOk = 0;
