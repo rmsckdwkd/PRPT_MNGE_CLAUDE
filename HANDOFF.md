@@ -2,7 +2,7 @@
 
 다른 PC나 클라우드 환경(Claude Code 웹·원격 세션 등)에서 이 작업을 이어받기 위한 문서입니다. 기능 소개는 [README.md](README.md)에 있고, 이 문서는 **지금 상태, 결정 사항, 이어서 할 일**을 정리합니다.
 
-- 최종 갱신: 2026-10-14
+- 최종 갱신: 2026-10-18
 - 저장소: https://github.com/rmsckdwkd/PRPT_MNGE_CLAUDE (공개)
 - 웹 버전(Vercel, AI 질문 포함): https://prptmngtclaude.vercel.app
 - 아티팩트(가상 데이터 시연): https://claude.ai/artifact/2JRnXWpzatCQsy3xHAj4P4
@@ -124,7 +124,7 @@ python3 tools/collect_rtms.py --sgg-file 보유시군구.txt --from 202608 --to 
 | 2 | **전월 대비(MoM) 기준 판정** 추가 여부 결정 | 실데이터가 12개월 미만인 동안 동 등급·조기경보가 비어 있음. MoM으로 판정하고 YoY가 쌓이면 자동 전환하는 방안 제안됨 |
 | 3 | 같은 단지 비교 지수(구성 편향 제거) | 지금은 ㎡당 중위가 이동평균. 단지×면적대 변동률을 동 단위로 합산하는 방식 제안됨(`collect_rtms.py` 확장, 아파트 매매 '상세' API 활용) |
 | 4 | VBA 최종 인풋 생성기 | 요청 후 보류. 원천 엑셀 + 가격 파일을 하나의 업로드 파일로 합치는 매크로(.bas). 시스템은 이미 따로 올리는 구조라 필수는 아님 |
-| 5 | 아티팩트·Vercel 갱신 | `USE_KB=false` 변경까지 GitHub에는 반영(푸시 시 Vercel 자동 재배포). 아티팩트는 `web/부동산통합관리시스템.html`로 다시 게시 필요 |
+| 5 | ~~아티팩트·Vercel 갱신~~ (완료) | `USE_KB=false` 빌드(2026-10-14 17:28)로 Vercel 재배포·아티팩트 재게시 완료. 이후 `src/app.html`을 고치면 빌드 → 푸시(Vercel 자동) → 아티팩트 재게시 |
 | 6 | 정식 운영 준비(기획서 4-4 운영 전환 기준) | 행안부 주소DB 교체, 실데이터 대사, 부서 확인, 정보보호 검토, 실 기준월 2개월 운영 |
 | 7 | 저장소 이력 정리(선택) | 담당자 원본 양식이 커밋 `a4c31bf`에 남아 있음. 지우려면 force push 필요 |
 
