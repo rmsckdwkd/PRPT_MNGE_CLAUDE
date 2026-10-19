@@ -9,6 +9,10 @@
 
 실행: python3 tools/extract_logic.py                 → 저장소 최상단에 핵심로직_추출_YYYYMMDD.txt
       python3 tools/extract_logic.py --out 파일명.txt
+      python3 tools/extract_logic.py --full          → 설치용(내장) 버전 핵심로직_설치용_내장_YYYYMMDD.txt
+        빌드된 부동산통합관리시스템_내부망.html(라이브러리·경계·샘플 내장)을 그대로 담는다.
+        확장자를 .html로 바꾸면 그대로 실행된다. 맨 앞 <!doctype html> 다음 줄에 머리말 주석 한 덩어리만 더하며,
+        그 주석을 지우면 원본과 바이트 단위로 같다. 인증정보 형태가 하나라도 보이면 가리지 않고 중단한다(코드 손상 방지).
 """
 import argparse
 import hashlib
@@ -53,10 +57,31 @@ def mask(text):
     return text, hits
 
 
+def full(out):
+    path = ROOT / "부동산통합관리시스템_내부망.html"
+    src = path.read_text(encoding="utf-8")
+    found = [p.pattern for p in SECRET_PATTERNS if p.search(src)]
+    if found:
+        raise SystemExit(f"인증정보로 보이는 문자열이 있어 중단합니다: {found} → 원본(src/app.html)에서 지우고 다시 빌드하세요.")
+    first, rest = src.split("\n", 1)
+    head = (f"<!--\n부동산 통합 익스포저 관리 — 설치용(내장) 버전\n"
+            f"추출 일시: {datetime.now():%Y-%m-%d %H:%M} · 추출 도구: tools/extract_logic.py --full\n"
+            f"원본: 부동산통합관리시스템_내부망.html ({len(src.encode('utf-8')):,} bytes, SHA-256 {hashlib.sha256(src.encode('utf-8')).hexdigest()})\n"
+            f"내용: 원본을 고치지 않고 그대로 담음. 이 주석만 더했으며 지우면 원본과 같음. 인증정보 없음(자동 점검).\n"
+            f"내장: Leaflet 1.9.4 · Leaflet.markercluster 1.5.3 · topojson 3.0.2 · SheetJS 0.18.5 · 행정구역 경계(통계청 SGIS, 공공누리 1유형) · 법정동코드표 · 가상 샘플\n"
+            f"설치: 확장자를 .html로 바꿔 브라우저(Chrome·Edge)로 열면 됨. 서버·인터넷 불필요, 외부 요청 0건(배경지도 '경계지도(내장)' 기준).\n-->\n")
+    Path(out).write_text(first + "\n" + head + rest, encoding="utf-8")
+    print(f"{out}\n  - 부동산통합관리시스템_내부망.html 그대로 · 인증정보 없음")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=str(ROOT / f"핵심로직_추출_{datetime.now():%Y%m%d}.txt"))
+    ap.add_argument("--out")
+    ap.add_argument("--full", action="store_true", help="라이브러리·내장 자료까지 담은 설치용 버전")
     a = ap.parse_args()
+    if a.full:
+        return full(a.out or str(ROOT / f"핵심로직_설치용_내장_{datetime.now():%Y%m%d}.txt"))
+    a.out = a.out or str(ROOT / f"핵심로직_추출_{datetime.now():%Y%m%d}.txt")
     parts, report = [], []
     for rel, kind in SOURCES:
         src = (ROOT / rel).read_text(encoding="utf-8")
